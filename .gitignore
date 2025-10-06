@@ -7,5 +7,6 @@ out/
 *.log 
 .env 
 .env.local 
-data/ 
-uploads/ 
+# data/ 
+# uploads/ 
+# .db
