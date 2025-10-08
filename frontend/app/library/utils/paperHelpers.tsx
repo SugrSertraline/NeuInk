@@ -93,5 +93,5 @@ export const TABLE_COLUMNS = [
   { key: 'progress', label: '进度', defaultVisible: false, width: 'w-24' },
   { key: 'rating', label: '评分', defaultVisible: true, width: 'w-20' },
   { key: 'readingTime', label: '阅读时长', defaultVisible: false, width: 'w-24' },
-  { key: 'actions', label: '操作', defaultVisible: true, width: 'w-16' },
+  { key: 'actions', label: '操作', defaultVisible: true, width: 'w-16', fixed: true },  
 ];

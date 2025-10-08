@@ -2,20 +2,61 @@
 
 import { Request, Response } from 'express';
 import { Paper } from '../models/Paper';
+import { PaperChecklist } from '../models/PaperChecklist';  // 🆕 导入
+import { Checklist } from '../models/Checklist';  // 🆕 导入
 import fs from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto'; 
-import type { PaperMetadata } from '@neuink/shared';
+import { recordToMetadata, metadataToRecord } from '../utils/paperMapper';
 
 /**
- * 获取所有论文列表
+ * 获取所有论文列表 - 支持多级排序
  */
 export async function getAllPapers(req: Request, res: Response) {
   try {
-    const papers = await Paper.findAll();
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const search = req.query.search as string || '';
+
+    const sortParam = req.query.sort as string || 'createdAt:desc';
+    const sortRules = sortParam.split(',').map(rule => {
+      const [field, order] = rule.split(':');
+      return { 
+        field: field.trim(), 
+        order: (order?.trim().toLowerCase() === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc'
+      };
+    });
+
+    const filters = {
+      status: req.query.status as string,
+      priority: req.query.priority as string,
+      articleType: req.query.articleType as string,
+      year: req.query.year as string,
+      rating: req.query.rating as string,
+      sciQuartile: req.query.sciQuartile as string,
+      casQuartile: req.query.casQuartile as string,
+      ccfRank: req.query.ccfRank as string,
+    };
+    
+    const result = await Paper.findAllWithFilters({
+      page,
+      limit,
+      sortRules,
+      search,
+      filters
+    });
+    
     res.json({
       success: true,
-      data: papers
+      data: {
+        papers: result.papers,
+        pagination: {
+          total: result.total,
+          page,
+          limit,
+          totalPages: Math.ceil(result.total / limit)
+        }
+      }
     });
   } catch (error) {
     console.error('获取论文列表失败:', error);
@@ -69,7 +110,6 @@ export async function createPaper(req: Request, res: Response) {
       ...paperData
     });
 
-    // 返回创建结果
     res.status(201).json({
       success: true,
       data: paper
@@ -113,9 +153,6 @@ export async function updatePaper(req: Request, res: Response) {
   }
 }
 
-/**
- * 删除论文
- */
 export async function deletePaper(req: Request, res: Response) {
   try {
     const { id } = req.params;
@@ -128,7 +165,6 @@ export async function deletePaper(req: Request, res: Response) {
       });
     }
 
-    // 同时删除对应的JSON文件
     const jsonPath = path.join(__dirname, '../../data/papers', `${id}.json`);
     try {
       await fs.unlink(jsonPath);
@@ -149,15 +185,10 @@ export async function deletePaper(req: Request, res: Response) {
   }
 }
 
-/**
- * 获取论文完整内容（从JSON文件）
- * 如果文件不存在，则创建一个默认的空内容
- */
 export async function getPaperContent(req: Request, res: Response) {
   try {
     const { id } = req.params;
     
-    // 1. 从数据库获取 metadata
     const paper = await Paper.findById(id);
     if (!paper) {
       return res.status(404).json({
@@ -166,7 +197,6 @@ export async function getPaperContent(req: Request, res: Response) {
       });
     }
     
-    // 2. 从 JSON 文件获取内容
     const jsonPath = path.join(__dirname, '../../data/papers', `${id}.json`);
     let contentData;
     
@@ -174,12 +204,11 @@ export async function getPaperContent(req: Request, res: Response) {
       const content = await fs.readFile(jsonPath, 'utf-8');
       contentData = JSON.parse(content);
     } catch (error) {
-      // 文件不存在，创建默认内容（不包含 metadata）
       console.log(`JSON文件不存在，为论文 ${id} 创建默认内容`);
       
       contentData = {
         abstract: undefined,      
-    keywords: undefined, 
+        keywords: undefined, 
         sections: [],
         references: [],
         blockNotes: [],
@@ -193,34 +222,8 @@ export async function getPaperContent(req: Request, res: Response) {
       await fs.writeFile(jsonPath, JSON.stringify(contentData, null, 2), 'utf-8');
     }
     
-    // 3. 构建 metadata（从数据库）
-    const metadata: PaperMetadata = {
-      id: paper.id,
-      title: paper.title,
-      shortTitle: paper.shortTitle,
-      authors: paper.authors ? JSON.parse(paper.authors) : [],
-      publication: paper.publication,
-      year: paper.year,
-      date: paper.date,
-      doi: paper.doi,
-      articleType: paper.articleType as any,
-      sciQuartile: paper.sciQuartile as any,
-      casQuartile: paper.casQuartile as any,
-      ccfRank: paper.ccfRank as any,
-      impactFactor: paper.impactFactor,
-      tags: paper.tags ? JSON.parse(paper.tags) : [],
-      readingStatus: paper.readingStatus as any,
-      priority: paper.priority as any,
-      rating: paper.rating,
-      remarks: paper.remarks,
-      readingPosition: paper.readingPosition,
-      totalReadingTime: paper.totalReadingTime,
-      lastReadTime: paper.lastReadTime,
-      createdAt: paper.createdAt,
-      updatedAt: paper.updatedAt
-    };
+    const metadata = recordToMetadata(paper);
     
-    // 4. 合并返回
     res.json({
       success: true,
       data: {
@@ -232,7 +235,7 @@ export async function getPaperContent(req: Request, res: Response) {
     console.error('获取论文内容失败:', error);
     res.status(500).json({
       success: false,
-      error: '获取论文内容失败'
+      error: error instanceof Error ? error.message : '获取论文内容失败'
     });
   }
 }
@@ -245,48 +248,78 @@ export async function savePaperContent(req: Request, res: Response) {
     const { id } = req.params;
     const { metadata, ...contentData } = req.body;
     
-    // 1. 如果有 metadata，更新到数据库
     if (metadata) {
-      await Paper.update(id, {
-        title: metadata.title,
-        shortTitle: metadata.shortTitle,
-        authors: metadata.authors ? JSON.stringify(metadata.authors) : undefined,
-        publication: metadata.publication,
-        year: metadata.year,
-        date: metadata.date,
-        doi: metadata.doi,
-        articleType: metadata.articleType,
-        sciQuartile: metadata.sciQuartile,
-        casQuartile: metadata.casQuartile,
-        ccfRank: metadata.ccfRank,
-        impactFactor: metadata.impactFactor,
-        tags: metadata.tags ? JSON.stringify(metadata.tags) : undefined,
-        readingStatus: metadata.readingStatus,
-        priority: metadata.priority,
-        rating: metadata.rating,
-        remarks: metadata.remarks,
-        readingPosition: metadata.readingPosition,
-        totalReadingTime: metadata.totalReadingTime,
-        lastReadTime: metadata.lastReadTime,
-      });
+      const recordData = metadataToRecord(metadata);
+      await Paper.update(id, recordData);
     }
     
-    // 2. 保存内容到 JSON（不包含 metadata）
     const dataDir = path.join(__dirname, '../../data/papers');
     await fs.mkdir(dataDir, { recursive: true });
     
     const jsonPath = path.join(dataDir, `${id}.json`);
     await fs.writeFile(jsonPath, JSON.stringify(contentData, null, 2), 'utf-8');
     
+    const paper = await Paper.findById(id);
+    if (!paper) {
+      return res.status(404).json({
+        success: false,
+        error: '论文不存在'
+      });
+    }
+
+    const updatedMetadata = recordToMetadata(paper);
+    
     res.json({
       success: true,
-      message: '保存成功'
+      data: {
+        metadata: updatedMetadata,
+        ...contentData
+      }
     });
   } catch (error) {
     console.error('保存论文内容失败:', error);
     res.status(500).json({
       success: false,
-      error: '保存论文内容失败'
+      error: error instanceof Error ? error.message : '保存论文内容失败'
+    });
+  }
+}
+
+// 🆕 获取论文所在的所有清单
+export async function getPaperChecklists(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    
+    // 验证论文存在
+    const paper = await Paper.findById(id);
+    if (!paper) {
+      return res.status(404).json({
+        success: false,
+        error: '论文不存在'
+      });
+    }
+
+    // 获取论文所在的清单ID列表
+    const checklistIds = await PaperChecklist.findChecklistIdsByPaperId(id);
+    
+    // 获取每个清单的详细信息
+    const checklists = [];
+    for (const checklistId of checklistIds) {
+      const checklist = await Checklist.findById(checklistId);
+      if (checklist) {
+        checklists.push(checklist);
+      }
+    }
+
+    res.json({
+      success: true,
+      data: checklists
+    });
+  } catch (error) {
+    console.error('获取论文清单失败:', error);
+    res.status(500).json({
+      success: false,
+      error: '获取论文清单失败'
     });
   }
 }

@@ -1,4 +1,4 @@
-// library/components/PaperTable.tsx
+// app/library/components/PaperTable.tsx - 增强版本
 
 'use client';
 
@@ -7,7 +7,6 @@ import { Star, Clock, MoreVertical } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { PaperMetadata } from '@neuink/shared';
 import {
@@ -17,54 +16,69 @@ import {
   getQuartileColor,
   TABLE_COLUMNS
 } from '../utils/paperHelpers';
+import ContextMenuWrapper from './ContextMenu';
 
 interface PaperTableProps {
   papers: PaperMetadata[];
   visibleColumns: Set<string>;
   onPaperClick: (paper: PaperMetadata) => void;
-  onContextMenu: (e: React.MouseEvent, paper: PaperMetadata) => void;
+  onEdit: (paper: PaperMetadata) => void;
+  onDelete: (paper: PaperMetadata) => Promise<void>;
 }
+
+// 未填写提示组件
+const EmptyField = ({ label }: { label: string }) => (
+  <span className="text-slate-400 dark:text-slate-500 text-xs italic">
+    {label}未填写
+  </span>
+);
 
 export default function PaperTable({
   papers,
   visibleColumns,
   onPaperClick,
-  onContextMenu
+  onEdit,
+  onDelete,
 }: PaperTableProps) {
   return (
     <div className="border rounded-lg overflow-hidden bg-white dark:bg-slate-900">
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-slate-50 dark:bg-slate-800 border-b sticky top-0">
+          {/* 表头 */}
+          <thead className="bg-slate-50 dark:bg-slate-800 border-b sticky top-0 z-10">
             <tr>
               {TABLE_COLUMNS.filter(col => visibleColumns.has(col.key)).map(col => (
-                <th key={col.key} className={cn("text-left p-3 text-sm font-semibold whitespace-nowrap", col.width)}>
+                <th
+                  key={col.key}
+                  className={cn(
+                    'text-left p-3 text-sm font-semibold whitespace-nowrap',
+                    col.width
+                  )}
+                >
                   {col.label}
                 </th>
               ))}
             </tr>
           </thead>
+
+          {/* 表体 */}
           <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-            {papers.map((p) => {
-              return (
+            {papers.map((p) => (
+              <ContextMenuWrapper
+                key={p.id}
+                paper={p}
+                onViewDetails={() => onPaperClick(p)}
+                onEdit={() => onEdit(p)}
+                onDelete={() => onDelete(p)}
+              >
                 <tr
-                  key={p.id}
                   onClick={() => onPaperClick(p)}
-                  onContextMenu={(e) => onContextMenu(e, p)}
                   className="hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors"
                 >
+                  {/* 标题列 */}
                   {visibleColumns.has('title') && (
                     <td className="p-3 max-w-md">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="truncate font-medium">{p.title}</div>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-md">
-                            <p>{p.title}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <div className="font-medium line-clamp-2">{p.title}</div>
                       {p.tags && p.tags.length > 0 && (
                         <div className="flex gap-1 mt-1">
                           {p.tags.slice(0, 2).map(tag => (
@@ -76,106 +90,130 @@ export default function PaperTable({
                       )}
                     </td>
                   )}
+
+                  {/* 作者列 */}
                   {visibleColumns.has('authors') && (
                     <td className="p-3 max-w-xs">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="truncate text-sm text-slate-600 dark:text-slate-400">
-                              {p.authors.length > 0 ? p.authors.map(a => a.name).join(', ') : '-'}
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{p.authors.length > 0 ? p.authors.map(a => a.name).join(', ') : '未知作者'}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </td>
-                  )}
-                  {visibleColumns.has('year') && (
-                    <td className="p-3 text-sm">{p.year || '-'}</td>
-                  )}
-                  {visibleColumns.has('publication') && (
-                    <td className="p-3 max-w-xs">
-                      {p.publication ? (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="truncate text-sm text-slate-600 dark:text-slate-400">
-                                {p.publication}
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent><p>{p.publication}</p></TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      ) : <span className="text-slate-400 text-sm">-</span>}
-                    </td>
-                  )}
-                  {visibleColumns.has('articleType') && (
-                    <td className="p-3">{getArticleTypeBadge(p.articleType)}</td>
-                  )}
-                  {visibleColumns.has('quartile') && (
-                    <td className="p-3">
-                      <div className="flex flex-col gap-1">
-                        {p.sciQuartile && (
-                          <Badge className={cn('text-xs w-fit', getQuartileColor(p.sciQuartile))}>
-                            SCI {p.sciQuartile}
-                          </Badge>
-                        )}
-                        {p.casQuartile && (
-                          <Badge className={cn('text-xs w-fit', getQuartileColor(p.casQuartile))}>
-                            中科院 {p.casQuartile}
-                          </Badge>
-                        )}
-                        {p.ccfRank && (
-                          <Badge className="text-xs w-fit bg-purple-50 text-purple-700">
-                            CCF {p.ccfRank}
-                          </Badge>
-                        )}
-                        {!p.sciQuartile && !p.casQuartile && !p.ccfRank && (
-                          <span className="text-slate-400 text-sm">-</span>
-                        )}
-                      </div>
-                    </td>
-                  )}
-                  {visibleColumns.has('impactFactor') && (
-                    <td className="p-3 text-sm">
-                      {p.impactFactor ? (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <span className="text-indigo-600 font-medium">{p.impactFactor}</span>
-                            </TooltipTrigger>
-                            <TooltipContent>影响因子: {p.impactFactor}</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      ) : '-'}
-                    </td>
-                  )}
-                  {visibleColumns.has('status') && (
-                    <td className="p-3">{getStatusBadge(p.readingStatus)}</td>
-                  )}
-                  {visibleColumns.has('priority') && (
-                    <td className="p-3">{getPriorityBadge(p.priority)}</td>
-                  )}
-                  {visibleColumns.has('progress') && (
-                    <td className="p-3">
-                      {p.readingPosition !== undefined && p.readingPosition > 0 ? (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="w-20">
-                                <Progress value={p.readingPosition * 100} className="h-2" />
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>{Math.round(p.readingPosition * 100)}%</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                      {p.authors && p.authors.length > 0 ? (
+                        <div className="truncate text-sm text-slate-600 dark:text-slate-400">
+                          {p.authors.map(a => a.name).join(', ')}
+                        </div>
                       ) : (
-                        <span className="text-slate-400">-</span>
+                        <EmptyField label="作者" />
                       )}
                     </td>
                   )}
+
+                  {/* 年份列 */}
+                  {visibleColumns.has('year') && (
+                    <td className="p-3 text-sm">
+                      {p.year ? p.year : <EmptyField label="年份" />}
+                    </td>
+                  )}
+
+                  {/* 发表刊物列 */}
+                  {visibleColumns.has('publication') && (
+                    <td className="p-3 max-w-xs">
+                      {p.publication ? (
+                        <div className="truncate text-sm text-slate-600 dark:text-slate-400">
+                          {p.publication}
+                        </div>
+                      ) : (
+                        <EmptyField label="发表刊物" />
+                      )}
+                    </td>
+                  )}
+
+                  {/* 类型列 */}
+                  {visibleColumns.has('articleType') && (
+                    <td className="p-3">
+                      {p.articleType ? (
+                        getArticleTypeBadge(p.articleType)
+                      ) : (
+                        <EmptyField label="类型" />
+                      )}
+                    </td>
+                  )}
+
+                  {/* 分区/分级列 */}
+                  {visibleColumns.has('quartile') && (
+                    <td className="p-3">
+                      {(p.sciQuartile || p.casQuartile || p.ccfRank) ? (
+                        <div className="flex flex-col gap-1">
+                          {p.sciQuartile && (
+                            <Badge className={cn('text-xs w-fit', getQuartileColor(p.sciQuartile))}>
+                              SCI {p.sciQuartile}
+                            </Badge>
+                          )}
+                          {p.casQuartile && (
+                            <Badge className={cn('text-xs w-fit', getQuartileColor(p.casQuartile))}>
+                              中科院 {p.casQuartile}
+                            </Badge>
+                          )}
+                          {p.ccfRank && (
+                            <Badge className="text-xs w-fit bg-purple-50 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+                              CCF {p.ccfRank}
+                            </Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <EmptyField label="分区" />
+                      )}
+                    </td>
+                  )}
+
+                  {/* 影响因子列 */}
+                  {visibleColumns.has('impactFactor') && (
+                    <td className="p-3 text-sm">
+                      {p.impactFactor ? (
+                        <span className="text-indigo-600 dark:text-indigo-400 font-medium">
+                          {p.impactFactor}
+                        </span>
+                      ) : (
+                        <EmptyField label="影响因子" />
+                      )}
+                    </td>
+                  )}
+
+                  {/* 状态列 */}
+                  {visibleColumns.has('status') && (
+                    <td className="p-3">
+                      {p.readingStatus ? (
+                        getStatusBadge(p.readingStatus)
+                      ) : (
+                        <EmptyField label="状态" />
+                      )}
+                    </td>
+                  )}
+
+                  {/* 优先级列 */}
+                  {visibleColumns.has('priority') && (
+                    <td className="p-3">
+                      {p.priority ? (
+                        getPriorityBadge(p.priority)
+                      ) : (
+                        <EmptyField label="优先级" />
+                      )}
+                    </td>
+                  )}
+
+                  {/* 进度列 */}
+                  {visibleColumns.has('progress') && (
+                    <td className="p-3">
+                      {p.readingPosition !== undefined && p.readingPosition > 0 ? (
+                        <div className="w-20">
+                          <Progress value={p.readingPosition * 100} className="h-2" />
+                          <div className="text-xs text-slate-500 mt-0.5 text-center">
+                            {Math.round(p.readingPosition * 100)}%
+                          </div>
+                        </div>
+                      ) : (
+                        <EmptyField label="进度" />
+                      )}
+                    </td>
+                  )}
+
+                  {/* 评分列 */}
                   {visibleColumns.has('rating') && (
                     <td className="p-3">
                       {p.rating ? (
@@ -184,27 +222,26 @@ export default function PaperTable({
                           <span className="text-sm">{p.rating}</span>
                         </div>
                       ) : (
-                        <span className="text-slate-400">-</span>
+                        <EmptyField label="评分" />
                       )}
                     </td>
                   )}
+
+                  {/* 阅读时长列 */}
                   {visibleColumns.has('readingTime') && (
                     <td className="p-3">
-                      {p.totalReadingTime ? (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <div className="flex items-center gap-1 text-xs text-slate-600">
-                                <Clock className="w-3 h-3" />
-                                {Math.round(p.totalReadingTime / 60)}min
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>总阅读时长</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      ) : <span className="text-slate-400 text-sm">-</span>}
+                      {p.totalReadingTime && p.totalReadingTime > 0 ? (
+                        <div className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400">
+                          <Clock className="w-3 h-3" />
+                          {Math.round(p.totalReadingTime / 60)}min
+                        </div>
+                      ) : (
+                        <EmptyField label="阅读时长" />
+                      )}
                     </td>
                   )}
+
+                  {/* 操作列 */}
                   {visibleColumns.has('actions') && (
                     <td className="p-3">
                       <Button
@@ -212,7 +249,6 @@ export default function PaperTable({
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onContextMenu(e as any, p);
                         }}
                       >
                         <MoreVertical className="w-4 h-4" />
@@ -220,8 +256,8 @@ export default function PaperTable({
                     </td>
                   )}
                 </tr>
-              );
-            })}
+              </ContextMenuWrapper>
+            ))}
           </tbody>
         </table>
       </div>

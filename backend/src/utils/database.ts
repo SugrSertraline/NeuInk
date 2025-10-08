@@ -78,7 +78,7 @@ async function initializeTables() {
     );
   `);
 
-  // 2) 对已存在的旧表进行“补列”迁移
+  // 2) 对已存在的旧表进行"补列"迁移
   await ensureColumns('papers', [
     { name: 'short_title',        type: 'TEXT' },
     { name: 'authors',            type: 'TEXT' },
@@ -103,25 +103,31 @@ async function initializeTables() {
     { name: 'updated_at',         type: 'TEXT' },
   ]);
 
-  // 3) 其它表：若不存在则创建
+  // 3) 清单表（🆕 添加 sort_order 字段）
   await db.exec(`
     CREATE TABLE IF NOT EXISTS checklists (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
-      full_path TEXT NOT NULL,
       parent_id TEXT,
       level INTEGER NOT NULL,
-      note_template TEXT,
+      sort_order INTEGER DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       FOREIGN KEY (parent_id) REFERENCES checklists(id) ON DELETE CASCADE
     );
   `);
 
+  // 🆕 为已存在的 checklists 表补充 sort_order 列
+  await ensureColumns('checklists', [
+    { name: 'sort_order', type: 'INTEGER DEFAULT 0' }
+  ]);
+
+  // 4) 论文-清单关联表（🆕 添加 sort_order 字段）
   await db.exec(`
     CREATE TABLE IF NOT EXISTS paper_checklists (
       paper_id TEXT NOT NULL,
       checklist_id TEXT NOT NULL,
+      sort_order INTEGER DEFAULT 0,
       created_at TEXT NOT NULL,
       PRIMARY KEY (paper_id, checklist_id),
       FOREIGN KEY (paper_id) REFERENCES papers(id) ON DELETE CASCADE,
@@ -129,6 +135,12 @@ async function initializeTables() {
     );
   `);
 
+  // 🆕 为已存在的 paper_checklists 表补充 sort_order 列
+  await ensureColumns('paper_checklists', [
+    { name: 'sort_order', type: 'INTEGER DEFAULT 0' }
+  ]);
+
+  // 5) 其它表
   await db.exec(`
     CREATE TABLE IF NOT EXISTS reading_stats (
       id TEXT PRIMARY KEY,
@@ -157,10 +169,9 @@ async function ensureColumns(
 
   for (const col of columns) {
     if (!existing.has(col.name)) {
-      // 这里不使用 NOT NULL 约束，避免对既有数据行的回填失败
-      // 默认值通过 type 字符串中携带（如 "TEXT DEFAULT 'unread'"）
       const sql = `ALTER TABLE ${table} ADD COLUMN ${col.name} ${col.type};`;
       await db.exec(sql);
+      console.log(`✅ 添加列: ${table}.${col.name}`);
     }
   }
 }

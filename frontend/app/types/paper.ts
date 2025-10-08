@@ -1,6 +1,6 @@
 // frontend/app/types/paper.ts
 
-import { PaperMetadata } from "@neuink/shared";
+import { ChecklistNote, PaperMetadata } from "@neuink/shared";
 
 // ============= 基础类型 =============
 
@@ -277,17 +277,7 @@ export interface BlockNote {
   updatedAt: string;
 }
 
-/** 清单笔记 */
-export interface ChecklistNote {
-  id: string;
-  checklistId: string;
-  checklistPath: string;
-  fields: {
-    [fieldName: string]: string;
-  };
-  createdAt: string;
-  updatedAt: string;
-}
+
 
 // ============= 完整论文结构 =============
 
@@ -307,3 +297,5 @@ export interface PaperContent {
   attachments?: string[];
 }
 
+
+export type { ChecklistNote };

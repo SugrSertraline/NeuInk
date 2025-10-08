@@ -16,4 +16,7 @@ router.delete('/:id', paperController.deletePaper);
 router.get('/:id/content', paperController.getPaperContent);
 router.put('/:id/content', paperController.savePaperContent);
 
+// 🆕 论文清单关联路由
+router.get('/:id/checklists', paperController.getPaperChecklists);
+
 export default router;

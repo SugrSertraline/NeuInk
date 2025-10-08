@@ -5,7 +5,9 @@ import cors from 'cors';
 import { initDatabase, closeDatabase } from './utils/database';
 import { initFileSystem } from './utils/fileSystem';
 import paperRoutes from './routes/papers';
-import uploadsRouter from './routes/uploads'; 
+import uploadsRouter from './routes/uploads';
+import checklistRoutes from './routes/checklists';  // 🆕 导入清单路由
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -16,7 +18,8 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // 路由
 app.use('/api/papers', paperRoutes);
-app.use('/api/uploads', uploadsRouter);  // 新增
+app.use('/api/uploads', uploadsRouter);
+app.use('/api/checklists', checklistRoutes);  // 🆕 注册清单路由
 
 // 健康检查
 app.get('/api/health', (req, res) => {

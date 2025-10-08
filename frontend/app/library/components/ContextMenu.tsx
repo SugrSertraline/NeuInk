@@ -1,62 +1,61 @@
-// library/components/ContextMenu.tsx
-
+// app/library/components/ContextMenu.tsx
 'use client';
 
 import React from 'react';
-import { Eye, Edit, Trash2 } from 'lucide-react';
+import { Eye, Edit, Trash2, FolderPlus } from 'lucide-react';
 import type { PaperMetadata } from '@neuink/shared';
+import {
+  ContextMenu as ShadcnContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 
-interface ContextMenuProps {
-  show: boolean;
-  x: number;
-  y: number;
-  paper: PaperMetadata | null;
+interface ContextMenuWrapperProps {
+  paper: PaperMetadata;
+  children: React.ReactNode;
   onViewDetails: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onAddToChecklist?: () => void;  // 🆕 新增
 }
 
-export default function ContextMenu({
-  show,
-  x,
-  y,
+export default function ContextMenuWrapper({
   paper,
+  children,
   onViewDetails,
   onEdit,
-  onDelete
-}: ContextMenuProps) {
-  if (!show || !paper) return null;
-
+  onDelete,
+  onAddToChecklist,  // 🆕 新增
+}: ContextMenuWrapperProps) {
   return (
-    <div
-      className="fixed bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 min-w-[160px] z-50"
-      style={{
-        left: `${x}px`,
-        top: `${y}px`,
-      }}
-    >
-      <button
-        onClick={onViewDetails}
-        className="w-full px-4 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
-      >
-        <Eye className="w-4 h-4" />
-        查看详情
-      </button>
-      <button
-        onClick={onEdit}
-        className="w-full px-4 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
-      >
-        <Edit className="w-4 h-4" />
-        编辑
-      </button>
-      <div className="border-t border-slate-200 dark:border-slate-700 my-1" />
-      <button
-        onClick={onDelete}
-        className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 flex items-center gap-2"
-      >
-        <Trash2 className="w-4 h-4" />
-        删除
-      </button>
-    </div>
+    <ShadcnContextMenu>
+      <ContextMenuTrigger asChild>
+        {children}
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-48 bg-white">
+        <ContextMenuItem onClick={onViewDetails} className="gap-2">
+          <Eye className="w-4 h-4" />
+          查看详情
+        </ContextMenuItem>
+        <ContextMenuItem onClick={onEdit} className="gap-2">
+          <Edit className="w-4 h-4" />
+          编辑
+        </ContextMenuItem>
+        {/* 🆕 新增添加到清单选项 */}
+        {onAddToChecklist && (
+          <ContextMenuItem onClick={onAddToChecklist} className="gap-2">
+            <FolderPlus className="w-4 h-4" />
+            添加到清单
+          </ContextMenuItem>
+        )}
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={onDelete} className="gap-2 text-red-600">
+          <Trash2 className="w-4 h-4" />
+          删除
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ShadcnContextMenu>
   );
 }

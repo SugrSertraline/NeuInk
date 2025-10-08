@@ -7,6 +7,7 @@ function rowToApi(row: any): ApiPaperRecord {
   if (!row) return row;
   return row as ApiPaperRecord;
 }
+
 /** 统一把 undefined 转成 null（避免 SQL 中出现 undefined） */
 const toNull = <T>(v: T | undefined | null): T | null =>
   v === undefined ? null : (v as any);
@@ -64,6 +65,24 @@ const COL_MAP: Record<string, string> = {
   updatedAt: 'updated_at',
 };
 
+// 🆕 更新 QueryOptions 接口 - 支持多级排序
+interface QueryOptions {
+  page: number;
+  limit: number;
+  sortRules: Array<{ field: string; order: 'asc' | 'desc' }>;  // 🆕 改为排序规则数组
+  search: string;
+  filters: {
+    status?: string;
+    priority?: string;
+    articleType?: string;
+    year?: string;
+    rating?: string;
+    sciQuartile?: string;
+    casQuartile?: string;
+    ccfRank?: string;
+  };
+}
+
 export class Paper {
   /** 获取所有论文 - 返回 camelCase */
   static async findAll(): Promise<ApiPaperRecord[]> {
@@ -85,8 +104,6 @@ export class Paper {
   ): Promise<ApiPaperRecord> {
     const db = await getDatabase();
     const now = new Date().toISOString();
-
-
 
     await db.run(
       `INSERT INTO papers (
@@ -134,10 +151,7 @@ export class Paper {
     const db = await getDatabase();
     const now = new Date().toISOString();
 
-    // 不可更新/由系统维护的字段剔除
     const { createdAt, updatedAt, id: _id, ...rest } = updates;
-
-    // 归一化：boolean → 0/1；undefined 键不更新；null 传递为 NULL
     const entries = Object.entries(rest).filter(([, v]) => v !== undefined);
 
     if (entries.length === 0) {
@@ -155,7 +169,6 @@ export class Paper {
       values.push(v);
     }
 
-    // 强制更新时间
     setClauses.push(`${COL_MAP.updatedAt} = ?`);
     values.push(now);
 
@@ -188,5 +201,131 @@ export class Paper {
       pattern
     );
     return rows.map(rowToApi);
+  }
+
+  // 🆕 支持多级排序的 findAllWithFilters 方法
+  static async findAllWithFilters(options: QueryOptions): Promise<{
+    papers: ApiPaperRecord[];
+    total: number;
+  }> {
+    const db = await getDatabase();
+    const { page, limit, sortRules, search, filters } = options;
+    
+    // 构建 WHERE 子句
+    const conditions: string[] = [];
+    const params: any[] = [];
+    
+    // 搜索条件（标题、作者、期刊、DOI、标签、备注）
+    if (search) {
+      conditions.push(`(
+        title LIKE ? OR 
+        authors LIKE ? OR 
+        publication LIKE ? OR
+        doi LIKE ? OR
+        tags LIKE ? OR
+        notes LIKE ?
+      )`);
+      const searchPattern = `%${search}%`;
+      params.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
+    }
+    
+    // 阅读状态筛选
+    if (filters.status && filters.status !== 'all') {
+      conditions.push('reading_status = ?');
+      params.push(filters.status);
+    }
+    
+    // 优先级筛选
+    if (filters.priority && filters.priority !== 'all') {
+      conditions.push('priority = ?');
+      params.push(filters.priority);
+    }
+    
+    // 文章类型筛选
+    if (filters.articleType && filters.articleType !== 'all') {
+      conditions.push('article_type = ?');
+      params.push(filters.articleType);
+    }
+    
+    // 年份筛选
+    if (filters.year && filters.year !== 'all') {
+      conditions.push('year = ?');
+      params.push(parseInt(filters.year));
+    }
+    
+    // SCI分区筛选
+    if (filters.sciQuartile && filters.sciQuartile !== 'all') {
+      conditions.push('sci_quartile = ?');
+      params.push(filters.sciQuartile);
+    }
+    
+    // 中科院分区筛选
+    if (filters.casQuartile && filters.casQuartile !== 'all') {
+      conditions.push('cas_quartile = ?');
+      params.push(filters.casQuartile);
+    }
+    
+    // CCF分级筛选
+    if (filters.ccfRank && filters.ccfRank !== 'all') {
+      conditions.push('ccf_rank = ?');
+      params.push(filters.ccfRank);
+    }
+    
+    // 评分筛选
+    if (filters.rating && filters.rating !== 'all') {
+      if (filters.rating === '4+') {
+        conditions.push('rating >= 4');
+      } else if (filters.rating === '3+') {
+        conditions.push('rating >= 3');
+      } else if (filters.rating === '<3') {
+        conditions.push('rating < 3');
+      }
+    }
+    
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    
+    // 🆕 构建多级排序的 ORDER BY 子句
+    const sortColumnMap: Record<string, string> = {
+      'createdAt': 'created_at',
+      'updatedAt': 'updated_at',
+      'title': 'title',
+      'year': 'year',
+      'rating': 'rating',
+      'impactFactor': 'impact_factor',
+      'readingStatus': 'reading_status',
+      'priority': 'priority',
+    };
+    
+    const orderByParts = sortRules.map(rule => {
+      const column = sortColumnMap[rule.field] || 'created_at';
+      const direction = rule.order.toUpperCase();
+      return `${column} ${direction}`;
+    });
+    
+    const orderByClause = orderByParts.length > 0
+      ? `ORDER BY ${orderByParts.join(', ')}`
+      : 'ORDER BY created_at DESC';
+    
+    // 计算总数
+    const countQuery = `SELECT COUNT(*) as total FROM papers ${whereClause}`;
+    const countResult = await db.get(countQuery, ...params);
+    const total = countResult.total;
+    
+    // 分页查询
+    const offset = (page - 1) * limit;
+    const dataQuery = `
+      SELECT ${SELECT_FIELDS}
+      FROM papers
+      ${whereClause}
+      ${orderByClause}
+      LIMIT ? OFFSET ?
+    `;
+    
+    const rows = await db.all(dataQuery, ...params, limit, offset);
+    
+    return {
+      papers: rows.map(rowToApi),
+      total
+    };
   }
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { apiGetData } from '../../lib/api';
+import { apiGetData, apiPut } from '../../lib/api';
 import type { PaperContent as PaperContentType, Section } from '../../types/paper';
 import PaperHeader from './components/PaperHeader';
 import PaperMetadata from './components/PaperMetadata';
@@ -9,6 +9,10 @@ import PaperContentComponent from './components/PaperContent';
 import EditablePaperContent from './components/editor/EditablePaperContent';
 import NotesPanel from './components/NotesPanel';
 import { X, StickyNote, Edit3, Eye, Save, XCircle, AlertCircle } from 'lucide-react';
+import ChecklistSelector from './components/ChecklistSelector';
+import ChecklistNotesPanel from './components/ChecklistNotesPanel';
+import { ChecklistNode } from '@neuink/shared';
+import { fetchPaperChecklists } from '@/app/lib/checklistApi';
 
 type Lang = 'en' | 'both';
 
@@ -35,6 +39,10 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // 🆕 清单相关状态
+  const [paperChecklists, setPaperChecklists] = useState<ChecklistNode[]>([]);
+  const [activeChecklistId, setActiveChecklistId] = useState<string | null>(null);
+  const [showChecklistNotes, setShowChecklistNotes] = useState(false);
 
   const contentRef = useRef<HTMLDivElement>(null);
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -63,7 +71,32 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
 
     return sections.some(checkSection);
   };
+  useEffect(() => {
+    const loadChecklists = async () => {
+      try {
+        const checklists = await fetchPaperChecklists(id);
+        setPaperChecklists(checklists);
+      } catch (error) {
+        console.error('加载清单失败:', error);
+      }
+    };
+    loadChecklists();
+  }, [id]);
 
+  // 🆕 处理清单切换
+  const handleChecklistChange = (checklistId: string | null) => {
+    setActiveChecklistId(checklistId);
+
+    if (checklistId) {
+      // 切换到清单笔记
+      setShowNotes(false);
+      setShowChecklistNotes(true);
+    } else {
+      // 切换到段落笔记
+      setShowChecklistNotes(false);
+      setShowNotes(true);
+    }
+  };
   const clearHideTimer = useCallback(() => {
     if (hideTimerRef.current) {
       clearTimeout(hideTimerRef.current);
@@ -148,7 +181,6 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
     setSaveError(null);
   };
 
-  // 🆕 保存更改
   const handleSaveChanges = async () => {
     if (!editedContent) return;
 
@@ -156,33 +188,29 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
     setSaveError(null);
 
     try {
-      // TODO: 替换为实际的 API 调用
-      const response = await fetch(`/api/papers/${id}/content`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editedContent),
-      });
+      // ✅ 直接使用 apiPut 工具函数，一行搞定
+      const updatedContent = await apiPut<PaperContentType>(
+        `/api/papers/${id}/content`,
+        editedContent
+      );
 
-      if (!response.ok) {
-        throw new Error('保存失败');
-      }
-
-      const updatedContent = await response.json();
       setContent(updatedContent);
       originalContentRef.current = JSON.parse(JSON.stringify(updatedContent));
       setIsEditMode(false);
       setEditedContent(null);
       setHasUnsavedChanges(false);
 
-      // 显示成功提示
       alert('✓ 保存成功！');
     } catch (error: any) {
-      setSaveError(error.message || '保存失败');
+      const errorMessage = error.message || '保存失败';
+      setSaveError(errorMessage);
       console.error('Save error:', error);
+      alert(`❌ ${errorMessage}`);
     } finally {
       setIsSaving(false);
     }
   };
+
 
   // 🆕 编辑内容变更处理
   const handleContentChange = (newContent: PaperContentType) => {
@@ -207,6 +235,28 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
     if (isEditMode) return; // 编辑模式下不打开笔记面板
     setActiveBlockId(blockId);
     setShowNotes(true);
+  };
+  const handleContentUpdate = async (updatedContent: PaperContentType) => {
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      const savedContent = await apiPut<PaperContentType>(
+        `/api/papers/${id}/content`,
+        updatedContent
+      );
+
+      setContent(savedContent);
+      originalContentRef.current = JSON.parse(JSON.stringify(savedContent));
+      return true;
+    } catch (error: any) {
+      const errorMessage = error.message || '保存失败';
+      setSaveError(errorMessage);
+      console.error('Save error:', error);
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const navigateSearch = (direction: 'next' | 'prev') => {
@@ -290,8 +340,7 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
 
       {/* Header - 在编辑模式下始终显示 */}
       <div
-        className={`absolute top-0 left-0 right-0 z-50 transition-transform duration-300 ease-in-out ${
-          showHeader ? 'translate-y-0' : '-translate-y-full' }`}
+        className={`absolute top-0 left-0 right-0 z-50 transition-transform duration-300 ease-in-out ${showHeader ? 'translate-y-0' : '-translate-y-full'}`}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
@@ -322,66 +371,95 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
         </div>
       )}
 
-<div className={`h-full ${isEditMode ? '' : 'flex overflow-hidden'}`}>
-  {/* 阅读模式 */}
-  {!isEditMode && (
-    <>
-      <div 
-        ref={contentRef}
-        className={`flex-1 overflow-y-auto ${showNotes ? 'border-r border-gray-200' : ''}`}
-      >
-        <div className="max-w-6xl mx-auto px-8 py-6">
-          <PaperMetadata content={content} />
-          <PaperContentComponent
-            sections={content.sections}
-            references={content.references}
+      <div className={`h-full ${isEditMode ? '' : 'flex overflow-hidden'}`}>
+        {/* 阅读模式 */}
+        {!isEditMode && (
+          <>
+            <div
+              ref={contentRef}
+              className={`flex-1 overflow-y-auto ${showNotes ? 'border-r border-gray-200' : ''}`}
+            >
+              <div className="max-w-6xl mx-auto px-8 py-6">
+                {paperChecklists.length > 0 && (
+                  <div className="mb-6">
+                    <ChecklistSelector
+                      checklists={paperChecklists}
+                      activeChecklistId={activeChecklistId}
+                      onChecklistChange={handleChecklistChange}
+                    />
+                  </div>
+                )}
+
+                <PaperMetadata content={content} />
+                <PaperContentComponent
+                  sections={content.sections}
+                  references={content.references}
+                  lang={lang}
+                  searchQuery={searchQuery}
+                  activeBlockId={activeBlockId}
+                  setActiveBlockId={setActiveBlockId}
+                  onBlockClick={handleBlockClick}
+                  highlightedRefs={highlightedRefs}
+                  setHighlightedRefs={setHighlightedRefs}
+                  contentRef={contentRef}
+                  blockNotes={content.blockNotes}
+                  setSearchResults={setSearchResults}
+                  setCurrentSearchIndex={setCurrentSearchIndex}
+                />
+              </div>
+            </div>
+            {showChecklistNotes && activeChecklistId && content && (
+              <ChecklistNotesPanel
+                content={content}
+                checklistId={activeChecklistId}
+                checklistName={
+                  paperChecklists.find(c => c.id === activeChecklistId)?.name || ''
+                }
+                checklistPath={
+                  paperChecklists.find(c => c.id === activeChecklistId)?.fullPath || ''
+                }
+                onClose={() => {
+                  setShowChecklistNotes(false);
+                  setActiveChecklistId(null);
+                }}
+                onContentUpdate={handleContentUpdate}
+                isSaving={isSaving}
+              />
+            )}
+            {/* 提示信息 */}
+            {!showNotes && !activeBlockId && (
+              <div className="absolute bottom-8 right-8 bg-blue-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-pulse z-30">
+                <StickyNote className="w-5 h-5" />
+                <span className="text-sm">点击任意段落查看笔记</span>
+              </div>
+            )}
+
+            {showNotes && activeBlockId && content && (
+              <NotesPanel
+                content={content}
+                activeBlockId={activeBlockId}
+                onClose={() => {
+                  setShowNotes(false);
+                  setActiveBlockId(null);
+                }}
+                onContentUpdate={handleContentUpdate}
+                isSaving={isSaving}
+              />
+            )}
+
+
+          </>
+        )}
+
+        {/* 编辑模式 */}
+        {isEditMode && editedContent && (
+          <EditablePaperContent
+            content={editedContent}
+            onChange={handleContentChange}
             lang={lang}
-            searchQuery={searchQuery}
-            activeBlockId={activeBlockId}
-            setActiveBlockId={setActiveBlockId}
-            onBlockClick={handleBlockClick}
-            highlightedRefs={highlightedRefs}
-            setHighlightedRefs={setHighlightedRefs}
-            contentRef={contentRef}
-            blockNotes={content.blockNotes}
-            setSearchResults={setSearchResults}
-            setCurrentSearchIndex={setCurrentSearchIndex}
           />
-        </div>
+        )}
       </div>
-
-      {/* 提示信息 */}
-      {!showNotes && !activeBlockId && (
-        <div className="absolute bottom-8 right-8 bg-blue-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-pulse z-30">
-          <StickyNote className="w-5 h-5" />
-          <span className="text-sm">点击任意段落查看笔记</span>
-        </div>
-      )}
-
-      {/* 笔记面板 */}
-      {showNotes && activeBlockId && (
-        <NotesPanel
-          blockNotes={content.blockNotes || []}
-          activeBlockId={activeBlockId}
-          onClose={() => {
-            setShowNotes(false);
-            setActiveBlockId(null);
-          }}
-          paperId={id}
-        />
-      )}
-    </>
-  )}
-
-  {/* 编辑模式 */}
-  {isEditMode && editedContent && (
-    <EditablePaperContent
-      content={editedContent}
-      onChange={handleContentChange}
-      lang={lang}
-    />
-  )}
-</div>
     </div>
   );
 }

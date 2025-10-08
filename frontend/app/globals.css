@@ -44,14 +44,7 @@
 * {
   border-color: hsl(var(--border));
 }
-/* 
-body {
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-family: system-ui, -apple-system, sans-serif;
-} */
 
-/* 自定义滚动条样式 */
 .scrollbar-thin::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -76,25 +69,98 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-button:focus,
-button:active,
-a:focus,
-a:active {
-  outline: none !important;
-  box-shadow: none !important;
+.prose {
+  color: #374151;
 }
 
-/* 防止过渡期间的渲染闪烁 */
-html {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
+.prose h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
 }
 
-/* 强制背景色立即生效 */
-html,
-body {
-  background-color: hsl(var(--background));
-  min-height: 100vh;
-  overflow-x: hidden;
+.prose h2 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.prose h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.prose p {
+  margin-bottom: 0.5rem;
+}
+
+.prose ul,
+.prose ol {
+  margin-left: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.prose li {
+  margin-bottom: 0.25rem;
+}
+
+.prose code {
+  background-color: #f3f4f6;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.prose pre {
+  background-color: #f3f4f6;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  overflow-x: auto;
+  margin-bottom: 0.5rem;
+}
+
+.prose pre code {
+  background-color: transparent;
+  padding: 0;
+  font-size: inherit;
+}
+
+.prose blockquote {
+  border-left: 4px solid #d1d5db;
+  padding-left: 1rem;
+  font-style: italic;
+  color: #6b7280;
+}
+
+.prose a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.prose a:hover {
+  text-decoration: underline;
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.25rem;
+}
+
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 0.5rem;
+}
+
+.prose th,
+.prose td {
+  border: 1px solid #d1d5db;
+  padding: 0.5rem;
+}
+
+.prose th {
+  background-color: #f9fafb;
+  font-weight: 600;
 }
