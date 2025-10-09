@@ -19,30 +19,32 @@ export default function TabBar() {
   const { tabs, activeTabId, setActiveTab, closeTab, loadingTabId, setLoading } = useTabStore();
 
   const onClickTab = async (tab: Tab) => {
-
     (document.activeElement as HTMLElement)?.blur();
 
     // 如果点击的是当前激活的tab，不需要切换
     if (tab.id === activeTabId) return;
+    
     const currentPath = window.location.pathname;
     if (currentPath === tab.path) {
       setActiveTab(tab.id);
       setLoading(false, null);
       return;
     }
+    
     // 设置加载状态
     setLoading(true, tab.id);
     
     try {
       setActiveTab(tab.id);
-      router.push(tab.path);
-      window.setTimeout(() => setLoading(false, null), 800);
-
+      await router.push(tab.path);
+      // 给路由一些时间完成，然后清除loading状态
+      setTimeout(() => {
+        setLoading(false, null);
+      }, 300);
     } catch (error) {
       console.error('Navigation error:', error);
       setLoading(false, null);
     }
-    // 注意：loading状态会在MainLayout中的路由监听器中清除
   };
 
   const onCloseTab = async (e: React.MouseEvent, tab: Tab) => {
@@ -73,8 +75,8 @@ export default function TabBar() {
           setLoading(true, targetTab.id);
           try {
             setActiveTab(targetTab.id);
-            router.push(targetTab.path); // 不要 await
-            window.setTimeout(() => setLoading(false, null), 800);
+            await router.push(targetTab.path);
+            setLoading(false, null);
           } catch (error) {
             console.error('Navigation error:', error);
             setLoading(false, null);

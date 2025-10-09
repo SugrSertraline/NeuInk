@@ -9,7 +9,11 @@ export interface PagedResult<T> {
   page: number;
   pageSize: number;
 }
-
+// 🆕 添加这个接口定义
+export interface DeleteChecklistResponse {
+  deletedChecklists: number;
+  affectedPapers: number;
+}
 // ============ 路由 ============
 const routes = {
   list:        '/api/checklists',                            // GET 列表（树）
@@ -51,8 +55,8 @@ export async function updateChecklist(id: string, dto: UpdateChecklistDto): Prom
   return apiPut<ChecklistNode>(routes.node(id), dto);
 }
 
-export async function deleteChecklist(id: string): Promise<{ success: true }> {
-  return apiDelete<{ success: true }>(routes.node(id));
+export async function deleteChecklist(id: string): Promise<DeleteChecklistResponse> {
+  return apiDelete<DeleteChecklistResponse>(routes.node(id));
 }
 
 export interface BatchReorderItem {

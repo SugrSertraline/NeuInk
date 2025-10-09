@@ -5,10 +5,10 @@ import * as checklistController from '../controllers/checklistController';
 
 const router = express.Router();
 
-// ⚠️ 重要：具体路径必须放在动态路径 /:id 之前！
 
 // 批量操作（放在 /:id 之前）
 router.put('/batch-reorder', checklistController.batchReorderChecklists);
+router.post('/clean-orphans', checklistController.cleanOrphanNotes);  // 🆕 新增
 
 // 清单 CRUD
 router.get('/', checklistController.getAllChecklists);

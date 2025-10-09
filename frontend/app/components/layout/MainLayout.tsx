@@ -35,7 +35,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
     if (!hasVisited) {
       sessionStorage.setItem('hasVisited', 'true');
       // 首次打开且直达子路由，也回首页并重置 Tab
-      if (window.location.pathname !== '/') {
+      // 但是如果是通过标签页导航过来的，不要重定向
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/' && !currentPath.startsWith('/paper/')) {
         resetToHome();
         router.replace('/');
       }
@@ -47,13 +49,12 @@ export default function MainLayout({ children }: MainLayoutProps) {
   }, []); // 维持一次性副作用
   
 
-  // 监听路由变化，清除loading状态
+  // 监听路由变化，但不自动清除loading状态
+  // 让TabBar组件自己管理loading状态
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false, null);
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [pathname, setLoading]);
+    // 这个useEffect现在只用于监听路由变化，不主动清除loading状态
+    // 避免与TabBar的loading管理冲突
+  }, [pathname]);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background">

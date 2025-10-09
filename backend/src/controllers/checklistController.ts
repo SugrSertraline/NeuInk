@@ -136,6 +136,7 @@ export async function deleteChecklist(req: Request, res: Response) {
 
     // 1. 获取该清单及所有子清单
     const descendantIds = await Checklist.getDescendantIds(id);
+    console.log(`准备删除清单及其子清单，共 ${descendantIds.length} 个清单`);
 
     // 2. 获取所有关联的论文
     const allPaperIds = new Set<string>();
@@ -143,6 +144,7 @@ export async function deleteChecklist(req: Request, res: Response) {
       const paperIds = await PaperChecklist.findPaperIdsByChecklistId(checklistId);
       paperIds.forEach(pid => allPaperIds.add(pid));
     }
+    console.log(`涉及 ${allPaperIds.size} 篇论文的清单笔记清理`);
 
     // 3. 清理所有论文JSON中的清单笔记
     for (const checklistId of descendantIds) {
@@ -159,15 +161,22 @@ export async function deleteChecklist(req: Request, res: Response) {
       });
     }
 
+    console.log(`成功删除清单 ${id} 及其 ${descendantIds.length - 1} 个子清单`);
+    
     res.json({
       success: true,
-      message: '删除成功'
+      message: '删除成功',
+      // 🆕 返回详细信息
+      data: {
+        deletedChecklists: descendantIds.length,
+        affectedPapers: allPaperIds.size
+      }
     });
   } catch (error) {
     console.error('删除清单失败:', error);
     res.status(500).json({
       success: false,
-      error: '删除清单失败'
+      error: error instanceof Error ? error.message : '删除清单失败'
     });
   }
 }
@@ -370,6 +379,27 @@ export async function reorderChecklistPapers(req: Request, res: Response) {
     res.status(500).json({
       success: false,
       error: '更新论文排序失败'
+    });
+  }
+}
+/**
+ * 清理孤儿清单笔记（管理功能）
+ */
+export async function cleanOrphanNotes(req: Request, res: Response) {
+  try {
+    const { cleanOrphanChecklistNotes } = await import('../utils/checklistHelper');
+    const result = await cleanOrphanChecklistNotes();
+
+    res.json({
+      success: true,
+      data: result,
+      message: `扫描了 ${result.scannedFiles} 个文件，清理了 ${result.cleanedNotes} 条孤儿笔记`
+    });
+  } catch (error) {
+    console.error('清理孤儿笔记失败:', error);
+    res.status(500).json({
+      success: false,
+      error: '清理孤儿笔记失败'
     });
   }
 }

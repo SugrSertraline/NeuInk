@@ -189,12 +189,26 @@ export class Checklist {
       setClauses.push('full_path = ?');
       values.push(newFullPath);
 
+      // 🆕 同步更新论文JSON中的清单路径
+      const { updateChecklistPathInPapers } = await import('../utils/checklistHelper');
+      await updateChecklistPathInPapers(id, newFullPath);
+
       // 如果当前节点是一级分类且名称改变，需要更新所有子节点的 full_path
       if (checklist.level === 1 && updates.name !== undefined) {
         await this.updateChildrenFullPath(id, newName);
+        
+        // 🆕 同步更新所有子清单的路径到论文JSON
+        const children = await db.all<ChecklistRecord[]>(
+          `SELECT ${SELECT_FIELDS} FROM checklists WHERE parent_id = ?`,
+          id
+        );
+        
+        for (const child of children) {
+          const childNewPath = `${newName}/${child.name}`;
+          await updateChecklistPathInPapers(child.id, childNewPath);
+        }
       }
     }
-
     if (setClauses.length === 0) {
       return checklist;
     }
