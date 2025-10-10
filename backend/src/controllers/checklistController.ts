@@ -423,7 +423,7 @@ export async function reorderChecklistPapers(req: Request, res: Response) {
  */
 export async function cleanOrphanNotes(req: Request, res: Response) {
   try {
-    const { cleanOrphanChecklistNotes } = await import('../utils/checklistHelper');
+    const { cleanOrphanChecklistNotes } = await import('../utils/checklistHelper.js');
     const result = await cleanOrphanChecklistNotes();
 
     res.json({

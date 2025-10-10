@@ -6,15 +6,14 @@ import {
   Library,
   FolderTree,
   Settings,
-  BookOpen,
   Loader2
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTabStore } from '@/app/store/useTabStore';
+import { useChecklistStore } from '@/app/store/useChecklistStore';
 import { cn } from '@/app/lib/utils';
 import type { TabType } from '@/app/store/useTabStore';
 
-import { useChecklistStore } from '@/app/store/useChecklistStore';
 import ChecklistTreeSidebar from './ChecklistTreeSidebar';
 
 export default function Sidebar() {
@@ -26,18 +25,34 @@ export default function Sidebar() {
     activeTabId,
     addTab,
     setActiveTab,
-    loadingTabId
+    loadingTabId,
+    setLoading
   } = useTabStore();
 
-  // 使用全局 store 持久化展开状态
-  const { setTreeOpen } = useChecklistStore();
-  
-  // 设置清单树始终展开
-  React.useEffect(() => {
-    setTreeOpen(true);
-  }, [setTreeOpen]);
+  const { loadChecklists, checklists } = useChecklistStore();
 
-  const handleNavClick = (
+  // ✅ 初始化加载清单数据
+  React.useEffect(() => {
+    if (checklists.length === 0) {
+      loadChecklists();
+    }
+  }, [loadChecklists, checklists.length]);
+
+  // ✅ 监听路径变化，自动清除 loading 状态
+  React.useEffect(() => {
+    if (loadingTabId) {
+      const targetTab = tabs.find(t => t.id === loadingTabId);
+      if (targetTab && pathname === targetTab.path) {
+        // 路径已经匹配，清除 loading
+        const timer = setTimeout(() => {
+          setLoading(false, null);
+        }, 150); // 给一点时间让页面渲染
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [pathname, loadingTabId, tabs, setLoading]);
+
+  const handleNavClick = async (
     id: string,
     type: TabType,
     label: string,
@@ -66,15 +81,24 @@ export default function Sidebar() {
       return;
     }
 
-    // 正常导航（加载状态由 useRouteLoading 自动管理）
-    if (existingTab) {
-      setActiveTab(id);
-    } else {
-      addTab({ id, type, title: label, path });
-      setActiveTab(id);
-    }
+    // 设置加载状态
+    setLoading(true, id);
+    
+    try {
+      // 正常导航
+      if (existingTab) {
+        setActiveTab(id);
+      } else {
+        addTab({ id, type, title: label, path });
+        setActiveTab(id);
+      }
 
-    router.push(path);
+      await router.push(path);
+      // ✅ 不再使用固定的 setTimeout，而是依赖 useEffect 监听路径变化
+    } catch (error) {
+      console.error('Navigation error:', error);
+      setLoading(false, null);
+    }
   };
 
   const NavButton = ({
@@ -82,20 +106,40 @@ export default function Sidebar() {
     type,
     label,
     icon: Icon,
-    gradientFrom,
-    gradientTo,
+    activeColor = 'blue', // 默认蓝色
     children
   }: {
     id: 'dashboard' | 'library' | 'checklists' | 'settings' | string;
     type: 'dashboard' | 'library' | 'checklist' | 'settings';
     label: string;
     icon: any;
-    gradientFrom: string;
-    gradientTo: string;
+    activeColor?: 'blue' | 'indigo' | 'cyan' | 'slate';
     children?: React.ReactNode;
   }) => {
     const isActive = activeTabId === id;
     const isLoading = loadingTabId === id;
+
+    // 基于主题色 #284286 的配色方案
+    const colorMap = {
+      blue: {
+        gradient: 'from-[#284286] to-[#3a5ba8]',
+        shadow: 'shadow-[#284286]/20'
+      },
+      indigo: {
+        gradient: 'from-[#3d4d99] to-[#4a5fb3]',
+        shadow: 'shadow-indigo-500/20'
+      },
+      cyan: {
+        gradient: 'from-[#2d5f7a] to-[#3a7694]',
+        shadow: 'shadow-cyan-600/20'
+      },
+      slate: {
+        gradient: 'from-slate-600 to-slate-700',
+        shadow: 'shadow-slate-500/20'
+      }
+    };
+
+    const colors = colorMap[activeColor];
 
     return (
       <button
@@ -111,7 +155,7 @@ export default function Sidebar() {
           "relative w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 text-sm font-medium group overflow-hidden",
           "focus:outline-none focus-visible:outline-none focus:ring-0",
           isActive
-            ? `bg-gradient-to-r ${gradientFrom} ${gradientTo} text-white shadow-lg shadow-${gradientFrom.split('-')[1]}-500/30 scale-[1.02]`
+            ? `bg-gradient-to-r ${colors.gradient} text-white shadow-lg ${colors.shadow} scale-[1.02]`
             : "text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:shadow-md hover:scale-[1.02]",
           isLoading && "opacity-75 cursor-wait"
         )}
@@ -150,26 +194,27 @@ export default function Sidebar() {
       {/* Logo区域 */}
       <div className="h-16 flex items-center px-5 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm select-none">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg shadow-lg select-none">
-            <BookOpen className="h-5 w-5 text-white" />
-          </div>
-          <span className="font-bold text-xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent select-none">
+          <img
+            src="/neuinl_logo.png"
+            alt="NeuInk Logo"
+            className="h-12 w-12 select-none"
+          />
+          <span className="font-['Playball'] font-bold text-xl select-none" style={{ color: '#284286' }}>
             NeuInk
           </span>
         </div>
       </div>
 
-      {/* 导航菜单 */}
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-        {/* 第一部分：主要功能 */}
+      {/* 导航菜单 - 包含所有内容（可滚动） */}
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto flex flex-col">
+        {/* 主要功能区 */}
         <div className="space-y-1.5">
           <NavButton
             id="dashboard"
             type="dashboard"
             label="首页"
             icon={Home}
-            gradientFrom="from-blue-500"
-            gradientTo="to-blue-600"
+            activeColor="blue"
           />
 
           <NavButton
@@ -177,8 +222,7 @@ export default function Sidebar() {
             type="library"
             label="论文库"
             icon={Library}
-            gradientFrom="from-purple-500"
-            gradientTo="to-purple-600"
+            activeColor="indigo"
           />
 
           <NavButton
@@ -186,8 +230,7 @@ export default function Sidebar() {
             type="checklist"
             label="清单管理"
             icon={FolderTree}
-            gradientFrom="from-emerald-500"
-            gradientTo="to-emerald-600"
+            activeColor="cyan"
           />
         </div>
 
@@ -198,12 +241,11 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* 第二部分：清单列表 */}
-        <div className="space-y-1.5">
-          {/* 真实清单树（始终展开） */}
+        {/* 清单列表 - 始终显示，灵活增长 */}
+        <div className="flex-1 space-y-1.5 min-h-0">
           <ChecklistTreeSidebar
             isOpen={true}
-            onToggle={() => {}} // 空函数，禁用切换
+            onToggle={() => {}}
             handleNavClick={handleNavClick}
             activePathChecker={isPathActive}
           />
@@ -216,42 +258,17 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* 第三部分：设置 */}
+        {/* 设置 - 固定在底部 */}
         <div className="space-y-1.5">
           <NavButton
             id="settings"
             type="settings"
             label="设置"
             icon={Settings}
-            gradientFrom="from-slate-600"
-            gradientTo="to-slate-700"
+            activeColor="slate"
           />
         </div>
       </nav>
-
-      {/* 底部统计信息 */}
-      <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm">
-        <div className="space-y-2.5">
-          <div className="flex justify-between items-center group cursor-default px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200">
-            <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">论文总数</span>
-            <span className="text-sm font-bold text-slate-800 dark:text-slate-200 bg-slate-200 dark:bg-slate-700 px-2.5 py-1 rounded-md group-hover:scale-110 transition-transform">
-              0
-            </span>
-          </div>
-          <div className="flex justify-between items-center group cursor-default px-3 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200">
-            <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">阅读中</span>
-            <span className="text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 px-2.5 py-1 rounded-md group-hover:scale-110 transition-transform shadow-sm">
-              0
-            </span>
-          </div>
-          <div className="flex justify-between items-center group cursor-default px-3 py-2 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all duration-200">
-            <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">已完成</span>
-            <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2.5 py-1 rounded-md group-hover:scale-110 transition-transform shadow-sm">
-              0
-            </span>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

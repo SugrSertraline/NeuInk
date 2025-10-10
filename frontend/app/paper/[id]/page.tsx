@@ -7,14 +7,13 @@ import PaperHeader from './components/PaperHeader';
 import PaperMetadata from './components/PaperMetadata';
 import PaperContentComponent from './components/PaperContent';
 import EditablePaperContent from './components/editor/EditablePaperContent';
-import NotesPanel from './components/NotesPanel';
-import { X, StickyNote, Edit3, Eye, Save, XCircle, AlertCircle } from 'lucide-react';
-import ChecklistSelector from './components/ChecklistSelector';
-import ChecklistNotesPanel from './components/ChecklistNotesPanel';
+import UnifiedNotesPanel from './components/UnifiedNotesPanel';
+import { X, StickyNote, FileText, FolderOpen } from 'lucide-react';
 import { ChecklistNode } from '@neuink/shared';
 import { fetchPaperChecklists } from '@/app/lib/checklistApi';
 
 type Lang = 'en' | 'both';
+type NoteMode = 'block' | 'checklist' | null;
 
 export default function PaperPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
@@ -24,25 +23,29 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lang, setLang] = useState<Lang>('en');
-  const [showNotes, setShowNotes] = useState(false);
+  
+  // 统一的笔记状态
+  const [noteMode, setNoteMode] = useState<NoteMode>(null);
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
+  const [activeChecklistId, setActiveChecklistId] = useState<string | null>(null);
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
   const [highlightedRefs, setHighlightedRefs] = useState<string[]>([]);
   const [showHeader, setShowHeader] = useState(false);
   const [hasChineseContent, setHasChineseContent] = useState(false);
+  const [isHeaderPinned, setIsHeaderPinned] = useState(false);
 
-  // 🆕 编辑模式状态
+  // 编辑模式状态
   const [isEditMode, setIsEditMode] = useState(false);
   const [editedContent, setEditedContent] = useState<PaperContentType | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  // 🆕 清单相关状态
+  
+  // 清单相关状态
   const [paperChecklists, setPaperChecklists] = useState<ChecklistNode[]>([]);
-  const [activeChecklistId, setActiveChecklistId] = useState<string | null>(null);
-  const [showChecklistNotes, setShowChecklistNotes] = useState(false);
 
   const contentRef = useRef<HTMLDivElement>(null);
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -71,6 +74,8 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
 
     return sections.some(checkSection);
   };
+
+  // 加载清单
   useEffect(() => {
     const loadChecklists = async () => {
       try {
@@ -83,20 +88,6 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
     loadChecklists();
   }, [id]);
 
-  // 🆕 处理清单切换
-  const handleChecklistChange = (checklistId: string | null) => {
-    setActiveChecklistId(checklistId);
-
-    if (checklistId) {
-      // 切换到清单笔记
-      setShowNotes(false);
-      setShowChecklistNotes(true);
-    } else {
-      // 切换到段落笔记
-      setShowChecklistNotes(false);
-      setShowNotes(true);
-    }
-  };
   const clearHideTimer = useCallback(() => {
     if (hideTimerRef.current) {
       clearTimeout(hideTimerRef.current);
@@ -121,8 +112,23 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
 
   const handleMouseLeave = useCallback(() => {
     isHeaderHoveredRef.current = false;
-    startHideTimer(HOVER_LEAVE_DELAY);
-  }, [startHideTimer, HOVER_LEAVE_DELAY]);
+    // 如果header被固定，不执行隐藏逻辑
+    if (!isHeaderPinned) {
+      startHideTimer(HOVER_LEAVE_DELAY);
+    }
+  }, [startHideTimer, HOVER_LEAVE_DELAY, isHeaderPinned]);
+
+  // 切换header固定状态
+  const handleTogglePin = useCallback(() => {
+    setIsHeaderPinned(prev => !prev);
+    // 如果取消固定，则开始隐藏计时器
+    if (isHeaderPinned) {
+      startHideTimer(HOVER_LEAVE_DELAY);
+    } else {
+      // 如果固定，确保header显示
+      setShowHeader(true);
+    }
+  }, [isHeaderPinned, startHideTimer, HOVER_LEAVE_DELAY]);
 
   // 加载论文内容
   useEffect(() => {
@@ -131,13 +137,12 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
         setLoading(true);
         const data = await apiGetData<PaperContentType>(`/api/papers/${id}/content`);
         setContent(data);
-        originalContentRef.current = JSON.parse(JSON.stringify(data)); // 深拷贝
+        originalContentRef.current = JSON.parse(JSON.stringify(data));
         setHasChineseContent(checkChineseContent(data.sections));
       } catch (e: any) {
         setError(e?.message || String(e));
       } finally {
         setLoading(false);
-        // 全局加载状态由 useRouteLoading 自动管理，无需手动清除
       }
     };
     fetchPaperContent();
@@ -146,6 +151,9 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
   // 滚动效果
   useEffect(() => {
     const handleScroll = () => {
+      // 如果header被固定，不执行滚动显示/隐藏逻辑
+      if (isHeaderPinned) return;
+      
       clearHideTimer();
       setShowHeader(true);
       startHideTimer(SCROLL_AUTO_HIDE_DELAY);
@@ -159,18 +167,18 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
         clearHideTimer();
       };
     }
-  }, [clearHideTimer, startHideTimer, SCROLL_AUTO_HIDE_DELAY]);
+  }, [clearHideTimer, startHideTimer, SCROLL_AUTO_HIDE_DELAY, isHeaderPinned]);
 
+  // 编辑模式
   const handleEnterEditMode = () => {
     if (!content) return;
-    setEditedContent(JSON.parse(JSON.stringify(content))); // 深拷贝
+    setEditedContent(JSON.parse(JSON.stringify(content)));
     setIsEditMode(true);
-    setShowNotes(false); // 关闭笔记面板
+    setNoteMode(null); // 关闭笔记面板
     setHasUnsavedChanges(false);
     setSaveError(null);
   };
 
-  // 🆕 退出编辑模式（不保存）
   const handleCancelEdit = () => {
     if (hasUnsavedChanges) {
       const confirmed = window.confirm('有未保存的更改，确定要放弃吗？');
@@ -189,7 +197,6 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
     setSaveError(null);
 
     try {
-      // ✅ 直接使用 apiPut 工具函数，一行搞定
       const updatedContent = await apiPut<PaperContentType>(
         `/api/papers/${id}/content`,
         editedContent
@@ -212,14 +219,12 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
     }
   };
 
-
-  // 🆕 编辑内容变更处理
   const handleContentChange = (newContent: PaperContentType) => {
     setEditedContent(newContent);
     setHasUnsavedChanges(true);
   };
 
-  // 🆕 键盘快捷键 (Ctrl+S 保存)
+  // 键盘快捷键
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isEditMode && (e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -232,11 +237,14 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isEditMode, editedContent]);
 
+  // 点击段落
   const handleBlockClick = (blockId: string) => {
-    if (isEditMode) return; // 编辑模式下不打开笔记面板
+    if (isEditMode) return;
     setActiveBlockId(blockId);
-    setShowNotes(true);
+    setNoteMode('block'); // 自动切换到段落笔记模式
   };
+
+  // 更新内容
   const handleContentUpdate = async (updatedContent: PaperContentType) => {
     setIsSaving(true);
     setSaveError(null);
@@ -260,6 +268,7 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
     }
   };
 
+  // 搜索导航
   const navigateSearch = (direction: 'next' | 'prev') => {
     if (searchResults.length === 0) return;
 
@@ -287,28 +296,28 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
     }
   };
 
-  // Loading 状态
+  // Loading
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center bg-gray-50">
+      <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-slate-900">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-500">加载论文中...</p>
+          <p className="text-gray-500 dark:text-slate-400">加载论文中...</p>
         </div>
       </div>
     );
   }
 
-  // Error 状态
+  // Error
   if (error) {
     return (
-      <div className="h-full flex items-center justify-center bg-gray-50">
+      <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-slate-900">
         <div className="text-center">
           <div className="text-red-600 mb-4">
             <X className="w-16 h-16 mx-auto mb-2" />
             <p className="text-lg font-semibold">加载失败</p>
           </div>
-          <p className="text-sm text-gray-600">{error}</p>
+          <p className="text-sm text-gray-600 dark:text-slate-400">{error}</p>
           <button
             onClick={() => window.location.reload()}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
@@ -322,8 +331,8 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
 
   if (!content) {
     return (
-      <div className="h-full flex items-center justify-center bg-gray-50">
-        <p className="text-gray-500">未找到论文内容</p>
+      <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-slate-900">
+        <p className="text-gray-500 dark:text-slate-400">未找到论文内容</p>
       </div>
     );
   }
@@ -331,7 +340,7 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
   const showChineseWarning = lang === 'both' && !hasChineseContent;
 
   return (
-    <div className="h-full bg-gray-50 overflow-hidden relative">
+    <div className="h-full bg-gray-50 dark:bg-slate-900 overflow-hidden relative">
       {/* 顶部触发区域 */}
       <div
         className={`absolute top-0 left-0 right-0 ${TRIGGER_AREA_HEIGHT} z-40`}
@@ -339,17 +348,23 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
         onMouseLeave={handleMouseLeave}
       />
 
-      {/* Header - 在编辑模式下始终显示 */}
+      {/* Header */}
       <div
-        className={`absolute top-0 left-0 right-0 z-50 transition-transform duration-300 ease-in-out ${showHeader ? 'translate-y-0' : '-translate-y-full'}`}
+        className={`${
+          isHeaderPinned
+            ? 'sticky top-0 left-0 right-0 z-50'
+            : 'absolute top-0 left-0 right-0 z-50 transition-transform duration-300 ease-in-out'
+        } ${
+          !isHeaderPinned && (showHeader ? 'translate-y-0' : '-translate-y-full')
+        }`}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
         <PaperHeader
           lang={lang}
           setLang={setLang}
-          showNotes={showNotes && !isEditMode}
-          setShowNotes={setShowNotes}
+          noteMode={noteMode}
+          setNoteMode={setNoteMode}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           contentRef={contentRef}
@@ -363,34 +378,30 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
           onEnterEditMode={handleEnterEditMode}
           onCancelEdit={handleCancelEdit}
           onSaveChanges={handleSaveChanges}
+          isHeaderPinned={isHeaderPinned}
+          onTogglePin={handleTogglePin}
         />
       </div>
 
+      {/* 中文警告 */}
       {showChineseWarning && (
-        <div className="absolute top-32 left-1/2 transform -translate-x-1/2 z-40 bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-2 rounded-lg shadow-md">
+        <div className="absolute top-32 left-1/2 transform -translate-x-1/2 z-40 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 text-yellow-800 dark:text-yellow-300 px-4 py-2 rounded-lg shadow-md">
           <p className="text-sm">⚠️ 该论文未配置中文内容</p>
         </div>
       )}
 
+      {/* 主内容区域 */}
       <div className={`h-full ${isEditMode ? '' : 'flex overflow-hidden'}`}>
         {/* 阅读模式 */}
         {!isEditMode && (
           <>
             <div
               ref={contentRef}
-              className={`flex-1 overflow-y-auto ${showNotes ? 'border-r border-gray-200' : ''}`}
+              className={`flex-1 overflow-y-auto ${
+                noteMode ? 'border-r border-gray-200 dark:border-slate-700' : ''
+              }`}
             >
               <div className="max-w-6xl mx-auto px-8 py-6">
-                {paperChecklists.length > 0 && (
-                  <div className="mb-6">
-                    <ChecklistSelector
-                      checklists={paperChecklists}
-                      activeChecklistId={activeChecklistId}
-                      onChecklistChange={handleChecklistChange}
-                    />
-                  </div>
-                )}
-
                 <PaperMetadata content={content} />
                 <PaperContentComponent
                   sections={content.sections}
@@ -409,46 +420,23 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
                 />
               </div>
             </div>
-            {showChecklistNotes && activeChecklistId && content && (
-              <ChecklistNotesPanel
-                content={content}
-                checklistId={activeChecklistId}
-                checklistName={
-                  paperChecklists.find(c => c.id === activeChecklistId)?.name || ''
-                }
-                checklistPath={
-                  paperChecklists.find(c => c.id === activeChecklistId)?.fullPath || ''
-                }
-                onClose={() => {
-                  setShowChecklistNotes(false);
-                  setActiveChecklistId(null);
-                }}
-                onContentUpdate={handleContentUpdate}
-                isSaving={isSaving}
-              />
-            )}
-            {/* 提示信息 */}
-            {!showNotes && !activeBlockId && (
-              <div className="absolute bottom-8 right-8 bg-blue-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-pulse z-30">
-                <StickyNote className="w-5 h-5" />
-                <span className="text-sm">点击任意段落查看笔记</span>
-              </div>
-            )}
 
-            {showNotes && activeBlockId && content && (
-              <NotesPanel
+            {/* 统一笔记面板 */}
+            {noteMode && (
+              <UnifiedNotesPanel
                 content={content}
+                mode={noteMode}
                 activeBlockId={activeBlockId}
-                onClose={() => {
-                  setShowNotes(false);
-                  setActiveBlockId(null);
-                }}
+                activeChecklistId={activeChecklistId}
+                checklists={paperChecklists}
+                onClose={() => setNoteMode(null)}
                 onContentUpdate={handleContentUpdate}
+                onChecklistChange={setActiveChecklistId}
                 isSaving={isSaving}
               />
             )}
 
-
+            
           </>
         )}
 

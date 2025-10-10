@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { X, Home, Library, FolderTree, Settings, FileText, Loader2 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useTabStore, Tab } from '@/app/store/useTabStore';
 import { cn } from '@/app/lib/utils';
 
@@ -16,7 +16,22 @@ const iconMap: Record<Tab['type'], React.ReactNode> = {
 
 export default function TabBar() {
   const router = useRouter();
+  const pathname = usePathname(); // ✅ 添加 pathname 监听
   const { tabs, activeTabId, setActiveTab, closeTab, loadingTabId, setLoading } = useTabStore();
+
+  // ✅ 监听路径变化，自动清除 loading 状态
+  React.useEffect(() => {
+    if (loadingTabId) {
+      const targetTab = tabs.find(t => t.id === loadingTabId);
+      if (targetTab && pathname === targetTab.path) {
+        // 路径已经匹配，清除 loading
+        const timer = setTimeout(() => {
+          setLoading(false, null);
+        }, 150); // 给一点时间让页面渲染
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [pathname, loadingTabId, tabs, setLoading]);
 
   const onClickTab = async (tab: Tab) => {
     (document.activeElement as HTMLElement)?.blur();
@@ -37,10 +52,7 @@ export default function TabBar() {
     try {
       setActiveTab(tab.id);
       await router.push(tab.path);
-      // 给路由一些时间完成，然后清除loading状态
-      setTimeout(() => {
-        setLoading(false, null);
-      }, 300);
+      // ✅ 不再使用固定的 setTimeout，而是依赖 useEffect 监听路径变化
     } catch (error) {
       console.error('Navigation error:', error);
       setLoading(false, null);
@@ -77,9 +89,7 @@ export default function TabBar() {
           try {
             setActiveTab(targetTab.id);
             await router.push(targetTab.path);
-            setTimeout(() => {
-              setLoading(false, null);
-            }, 300);
+            // ✅ 依赖 useEffect 监听路径变化
           } catch (error) {
             console.error('Navigation error:', error);
             setLoading(false, null);
@@ -100,11 +110,11 @@ export default function TabBar() {
         const baseBtn =
           "relative inline-flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 text-sm font-medium group overflow-hidden";
         const activeStylesMap: Record<Tab['type'], string> = {
-          dashboard: "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30 scale-[1.02]",
-          library: "bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-lg shadow-purple-500/30 scale-[1.02]",
-          checklist: "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/30 scale-[1.02]",
-          settings: "bg-gradient-to-r from-slate-600 to-slate-700 text-white shadow-lg shadow-slate-500/30 scale-[1.02]",
-          paper: "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-lg shadow-indigo-500/30 scale-[1.02]",
+          dashboard: "bg-gradient-to-r from-[#284286] to-[#3a5ba8] text-white shadow-lg shadow-[#284286]/20 scale-[1.02]",
+          library: "bg-gradient-to-r from-[#3d4d99] to-[#4a5fb3] text-white shadow-lg shadow-indigo-500/20 scale-[1.02]",
+          checklist: "bg-gradient-to-r from-[#2d5f7a] to-[#3a7694] text-white shadow-lg shadow-cyan-600/20 scale-[1.02]",
+          settings: "bg-gradient-to-r from-slate-600 to-slate-700 text-white shadow-lg shadow-slate-500/20 scale-[1.02]",
+          paper: "bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-lg shadow-indigo-500/20 scale-[1.02]",
         };
         const inactiveStyles =
           "text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:shadow-md hover:scale-[1.02]";

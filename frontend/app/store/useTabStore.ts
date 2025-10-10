@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 
 export type KnownTabType = 'dashboard' | 'library' | 'paper' | 'checklist' | 'settings';
-// 可扩展为任意字符串
 export type TabType = KnownTabType | (string & {});
+
 export interface Tab {
   id: string;
   type: TabType;
@@ -14,16 +14,16 @@ export interface Tab {
 interface TabStore {
   tabs: Tab[];
   activeTabId: string | null;
-  isLoading: boolean; // 新增：全局加载状态
-  loadingTabId: string | null; // 新增：正在加载的tab ID
+  isLoading: boolean;
+  loadingTabId: string | null;
   
-  addTab: (tab: Tab) => void;
+  addTab: (tab: Tab, activateImmediately?: boolean) => void; // ✅ 添加可选参数
   closeTab: (tabId: string) => void;
   setActiveTab: (tabId: string) => void;
   updateTab: (tabId: string, updates: Partial<Tab>) => void;
   closeAllTabs: () => void;
   closeOtherTabs: (tabId: string) => void;
-  setLoading: (isLoading: boolean, tabId?: string | null) => void; 
+  setLoading: (isLoading: boolean, tabId?: string | null) => void;
   resetToHome: () => void;
 }
 
@@ -46,16 +46,21 @@ export const useTabStore = create<TabStore>((set, get) => ({
     loadingTabId: null
   }),
 
-  addTab: (tab) => {
+  // ✅ 修改 addTab 方法
+  addTab: (tab, activateImmediately = true) => {
     const { tabs } = get();
     const existingTab = tabs.find(t => t.id === tab.id);
     
     if (existingTab) {
-      set({ activeTabId: tab.id });
+      // 如果tab已存在，根据参数决定是否激活
+      if (activateImmediately) {
+        set({ activeTabId: tab.id });
+      }
     } else {
+      // 添加新tab，根据参数决定是否激活
       set({ 
         tabs: [...tabs, tab],
-        activeTabId: tab.id 
+        activeTabId: activateImmediately ? tab.id : get().activeTabId
       });
     }
   },

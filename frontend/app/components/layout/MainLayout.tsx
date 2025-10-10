@@ -133,7 +133,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
       // 首次打开且直达子路由，也回首页并重置 Tab
       // 但是如果是通过标签页导航过来的，不要重定向
       const currentPath = window.location.pathname;
-      if (currentPath !== '/' && !currentPath.startsWith('/paper/')) {
+      // 添加 /settings 路径到例外列表，避免设置页面被重定向
+      if (currentPath !== '/' && !currentPath.startsWith('/paper/') && !currentPath.startsWith('/settings')) {
         resetToHome();
         router.replace('/');
       }

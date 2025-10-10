@@ -30,7 +30,7 @@ type ViewMode = 'card' | 'table' | 'compact';
 
 export default function LibraryPage() {
   const router = useRouter();
-  const { addTab, setActiveTab, tabs } = useTabStore();
+  const { addTab, setActiveTab, tabs, setLoading } = useTabStore();
 
   // 视图与UI
   const [viewMode, setViewMode] = React.useState<ViewMode>('card');
@@ -91,12 +91,25 @@ export default function LibraryPage() {
   const openPaper = async (paper: PaperMetadata) => {
     const id = `paper:${paper.id}`;
     const path = `/paper/${paper.id}`;
-    // 全局加载状态由 useRouteLoading 自动管理，无需手动设置
+    
     if (!tabs.find((t) => t.id === id)) {
       addTab({ id, type: 'paper', title: paper.title, path, data: { paperId: paper.id } });
     }
+    
+    // 设置加载状态
+    setLoading(true, id);
     setActiveTab(id);
-    await router.push(path);
+    
+    try {
+      await router.push(path);
+      // 给路由一些时间完成，然后清除loading状态
+      setTimeout(() => {
+        setLoading(false, null);
+      }, 300);
+    } catch (error) {
+      console.error('Navigation error:', error);
+      setLoading(false, null);
+    }
   };
 
   const handlePaperDialogSuccess = async () => {

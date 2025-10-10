@@ -1,5 +1,22 @@
 @import "tailwindcss";
 
+/* 导入自定义字体 */
+@font-face {
+  font-family: 'PressStart2P';
+  src: url('/PressStart2P-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Playball';
+  src: url('/Playball-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --background: 0 0% 100%;
   --foreground: 222.2 84% 4.9%;

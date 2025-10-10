@@ -1,14 +1,27 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import 'katex/dist/katex.min.css'; 
+import 'katex/dist/katex.min.css';
 import MainLayout from "./components/layout/MainLayout";
+import { ThemeProvider } from "./components/ThemeProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "NeuInk - 学术论文管理",
-  description: "学术论文阅读和管理工具",
+  title: "NeuInk - 智能论文阅读与管理平台",
+  description: "AI驱动的学术论文阅读、批注和管理工具，提升研究效率",
+  icons: {
+    icon: [
+      { url: '/neuinl_logo.png', sizes: '32x32', type: 'image/png' },
+      { url: '/neuinl_logo.png', sizes: '16x16', type: 'image/png' },
+      { url: '/neuinl_logo.png', sizes: '192x192', type: 'image/png' },
+      { url: '/neuinl_logo.png', sizes: '512x512', type: 'image/png' },
+    ],
+    shortcut: '/neuinl_logo.png',
+    apple: [
+      { url: '/neuinl_logo.png', sizes: '180x180', type: 'image/png' },
+    ],
+  },
 };
 
 export default function RootLayout({
@@ -22,9 +35,11 @@ export default function RootLayout({
         className={`${inter.className} bg-background text-foreground antialiased electron-app`}
         suppressHydrationWarning
       >
-        <MainLayout>
-          {children}
-        </MainLayout>
+        <ThemeProvider>
+          <MainLayout>
+            {children}
+          </MainLayout>
+        </ThemeProvider>
       </body>
     </html>
   );
