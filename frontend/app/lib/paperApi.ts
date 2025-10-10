@@ -1,9 +1,9 @@
 // app/lib/paperApi.ts
 import { PaperContent } from '../types/paper';
 import { apiGetData, apiPost, apiPut, apiDelete } from './api';
-import type { 
-  PaperMetadata, 
-  PaperRecord 
+import type {
+  PaperMetadata,
+  PaperRecord
 } from '@neuink/shared';
 
 /** 分页响应类型 */
@@ -26,6 +26,22 @@ interface PaperQueryParams {
   tags?: string[];
 }
 
+// ============ 路由定义 ============
+const routes = {
+  list: '/api/papers',
+  item: (id: string) => `/api/papers/${id}`,
+  content: (id: string) => `/api/papers/${id}/content`,
+  checklists: (id: string) => `/api/papers/${id}/checklists`,
+  progress: (id: string) => `/api/papers/${id}/progress`,
+  search: '/api/papers/search',
+  import: '/api/papers/import',
+  export: '/api/papers/export',
+  stats: '/api/papers/stats',
+  pdf: (id: string) => `/api/papers/${id}/pdf`
+};
+
+// ============ 论文基础操作 ============
+
 /**
  * 获取论文列表
  */
@@ -44,7 +60,7 @@ export async function fetchPapers(
   if (params?.tags?.length) queryString.set('tags', params.tags.join(','));
 
   const query = queryString.toString();
-  const path = `/api/papers${query ? `?${query}` : ''}`;
+  const path = `${routes.list}${query ? `?${query}` : ''}`;
   
   const response = await apiGetData<{
     papers: PaperRecord[];
@@ -68,24 +84,7 @@ export async function fetchPapers(
  * 获取单篇论文元数据
  */
 export async function fetchPaperMetadata(paperId: string): Promise<PaperRecord> {
-  return apiGetData<PaperRecord>(`/api/papers/${paperId}`);
-}
-
-/**
- * 获取论文完整内容（包含 sections, blockNotes, checklistNotes 等）
- */
-export async function fetchPaperContent(paperId: string): Promise<PaperContent> {
-  return apiGetData<PaperContent>(`/api/papers/${paperId}/content`);
-}
-
-/**
- * 保存论文内容
- */
-export async function savePaperContent(
-  paperId: string,
-  content: PaperContent
-): Promise<PaperContent> {
-  return apiPut<PaperContent>(`/api/papers/${paperId}/content`, content);
+  return apiGetData<PaperRecord>(routes.item(paperId));
 }
 
 /**
@@ -94,7 +93,7 @@ export async function savePaperContent(
 export async function createPaper(
   paperData: Partial<PaperMetadata>
 ): Promise<PaperRecord> {
-  return apiPost<PaperRecord>('/api/papers', paperData);
+  return apiPost<PaperRecord>(routes.list, paperData);
 }
 
 /**
@@ -104,35 +103,33 @@ export async function updatePaperMetadata(
   paperId: string,
   updates: Partial<PaperMetadata>
 ): Promise<PaperRecord> {
-  return apiPut<PaperRecord>(`/api/papers/${paperId}`, updates);
+  return apiPut<PaperRecord>(routes.item(paperId), updates);
 }
 
 /**
  * 删除论文
  */
 export async function deletePaper(paperId: string): Promise<void> {
-  return apiDelete<void>(`/api/papers/${paperId}`);
+  return apiDelete<void>(routes.item(paperId));
+}
+
+// ============ 论文内容操作 ============
+
+/**
+ * 获取论文完整内容（包含 sections, blockNotes, checklistNotes 等）
+ */
+export async function fetchPaperContent(paperId: string): Promise<PaperContent> {
+  return apiGetData<PaperContent>(routes.content(paperId));
 }
 
 /**
- * 获取论文所属的清单列表
+ * 保存论文内容
  */
-export async function fetchPaperChecklists(
-  paperId: string
-): Promise<any[]> {
-  return apiGetData<any[]>(`/api/papers/${paperId}/checklists`);
-}
-
-/**
- * 批量导入论文
- */
-export async function importPapers(
-  papers: Partial<PaperMetadata>[]
-): Promise<{ success: number; failed: number; errors: string[] }> {
-  return apiPost<{ success: number; failed: number; errors: string[] }>(
-    '/api/papers/import',
-    { papers }
-  );
+export async function savePaperContent(
+  paperId: string,
+  content: PaperContent
+): Promise<PaperContent> {
+  return apiPut<PaperContent>(routes.content(paperId), content);
 }
 
 /**
@@ -146,7 +143,32 @@ export async function updateReadingProgress(
     lastReadTime?: string;
   }
 ): Promise<void> {
-  return apiPut<void>(`/api/papers/${paperId}/progress`, progress);
+  return apiPut<void>(routes.progress(paperId), progress);
+}
+
+// ============ 论文关联操作 ============
+
+/**
+ * 获取论文所属的清单列表
+ */
+export async function fetchPaperChecklists(
+  paperId: string
+): Promise<any[]> {
+  return apiGetData<any[]>(routes.checklists(paperId));
+}
+
+// ============ 批量操作 ============
+
+/**
+ * 批量导入论文
+ */
+export async function importPapers(
+  papers: Partial<PaperMetadata>[]
+): Promise<{ success: number; failed: number; errors: string[] }> {
+  return apiPost<{ success: number; failed: number; errors: string[] }>(
+    routes.import,
+    { papers }
+  );
 }
 
 /**
@@ -169,29 +191,12 @@ export async function searchPapers(
 
   const response = await apiGetData<{
     papers: PaperRecord[];
-  }>(`/api/papers/search?${queryString.toString()}`);
+  }>(`${routes.search}?${queryString.toString()}`);
 
   return response.papers;
 }
 
-/**
- * 导出论文数据
- */
-export async function exportPapers(
-  paperIds?: string[]
-): Promise<Blob> {
-  const queryString = paperIds?.length 
-    ? `?ids=${paperIds.join(',')}` 
-    : '';
-  
-  const response = await fetch(`/api/papers/export${queryString}`);
-  
-  if (!response.ok) {
-    throw new Error('导出失败');
-  }
-  
-  return response.blob();
-}
+// ============ 文件操作 ============
 
 /**
  * 上传论文 PDF
@@ -204,10 +209,31 @@ export async function uploadPaperPDF(
   formData.append('pdf', file);
   
   return apiPost<{ pdfPath: string }>(
-    `/api/papers/${paperId}/pdf`,
+    routes.pdf(paperId),
     formData
   );
 }
+
+/**
+ * 导出论文数据
+ */
+export async function exportPapers(
+  paperIds?: string[]
+): Promise<Blob> {
+  const queryString = paperIds?.length
+    ? `?ids=${paperIds.join(',')}`
+    : '';
+  
+  const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001'}${routes.export}${queryString}`);
+  
+  if (!response.ok) {
+    throw new Error('导出失败');
+  }
+  
+  return response.blob();
+}
+
+// ============ 统计信息 ============
 
 /**
  * 获取论文统计信息
@@ -223,5 +249,5 @@ export async function fetchPaperStats(): Promise<{
     byStatus: Record<string, number>;
     byPriority: Record<string, number>;
     byYear: Record<number, number>;
-  }>('/api/papers/stats');
+  }>(routes.stats);
 }

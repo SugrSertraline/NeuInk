@@ -6,8 +6,6 @@ import {
   Library,
   FolderTree,
   Settings,
-  ChevronRight,
-  Plus,
   BookOpen,
   Loader2
 } from 'lucide-react';
@@ -28,12 +26,16 @@ export default function Sidebar() {
     activeTabId,
     addTab,
     setActiveTab,
-    loadingTabId,
-    setLoading
+    loadingTabId
   } = useTabStore();
 
   // 使用全局 store 持久化展开状态
-  const { isTreeOpen, setTreeOpen } = useChecklistStore();
+  const { setTreeOpen } = useChecklistStore();
+  
+  // 设置清单树始终展开
+  React.useEffect(() => {
+    setTreeOpen(true);
+  }, [setTreeOpen]);
 
   const handleNavClick = (
     id: string,
@@ -44,7 +46,7 @@ export default function Sidebar() {
     (document.activeElement as HTMLElement)?.blur();
     const existingTab = tabs.find(t => t.id === id);
 
-    // ✅ 显式路径优先；否则按类型推导
+    // 显式路径优先；否则按类型推导
     const path =
       explicitPath
       ?? (type === 'dashboard'
@@ -53,7 +55,7 @@ export default function Sidebar() {
           ? `/paper/${id}`
           : `/${String(type)}`));
 
-    // 已在当前路径：只需要激活 tab 并清理 loading
+    // 已在当前路径：只需要激活 tab
     if (pathname === path) {
       if (existingTab) {
         setActiveTab(id);
@@ -61,28 +63,18 @@ export default function Sidebar() {
         addTab({ id, type, title: label, path });
         setActiveTab(id);
       }
-      setLoading(false, null);
       return;
     }
 
-    // 正常导航
-    setLoading(true, id);
-    try {
-      if (existingTab) {
-        setActiveTab(id);
-      } else {
-        addTab({ id, type, title: label, path });
-        setActiveTab(id);
-      }
-
-      router.push(path);
-
-      // 兜底超时
-      window.setTimeout(() => setLoading(false, null), 800);
-    } catch (e) {
-      console.error('Navigation error:', e);
-      setLoading(false, null);
+    // 正常导航（加载状态由 useRouteLoading 自动管理）
+    if (existingTab) {
+      setActiveTab(id);
+    } else {
+      addTab({ id, type, title: label, path });
+      setActiveTab(id);
     }
+
+    router.push(path);
   };
 
   const NavButton = ({
@@ -111,7 +103,7 @@ export default function Sidebar() {
           id,
           type,
           label,
-          // ✅ 修正清单管理显式路径为 /checklists（避免自动推导成 /checklist）
+          // 修正清单管理显式路径为 /checklists（避免自动推导成 /checklist）
           id === 'checklists' ? '/checklists' : undefined
         )}
         disabled={isLoading}
@@ -156,12 +148,12 @@ export default function Sidebar() {
   return (
     <div className="w-64 h-full bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950 border-r border-slate-200 dark:border-slate-800 flex flex-col shadow-sm">
       {/* Logo区域 */}
-      <div className="h-16 flex items-center px-5 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
+      <div className="h-16 flex items-center px-5 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm select-none">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg shadow-lg">
+          <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg shadow-lg select-none">
             <BookOpen className="h-5 w-5 text-white" />
           </div>
-          <span className="font-bold text-xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <span className="font-bold text-xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent select-none">
             NeuInk
           </span>
         </div>
@@ -169,7 +161,7 @@ export default function Sidebar() {
 
       {/* 导航菜单 */}
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-        {/* 第一部分：首页和论文库 */}
+        {/* 第一部分：主要功能 */}
         <div className="space-y-1.5">
           <NavButton
             id="dashboard"
@@ -188,6 +180,15 @@ export default function Sidebar() {
             gradientFrom="from-purple-500"
             gradientTo="to-purple-600"
           />
+
+          <NavButton
+            id="checklists"
+            type="checklist"
+            label="清单管理"
+            icon={FolderTree}
+            gradientFrom="from-emerald-500"
+            gradientTo="to-emerald-600"
+          />
         </div>
 
         {/* 分割线 */}
@@ -197,61 +198,12 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* 第二部分：清单管理 */}
+        {/* 第二部分：清单列表 */}
         <div className="space-y-1.5">
-          <button
-            onClick={() => {
-              // 点击即跳管理页，并切换展开状态
-              handleNavClick('checklists', 'checklist', '清单管理', '/checklists');
-              setTreeOpen(!isTreeOpen);
-            }}
-            disabled={loadingTabId === 'checklists'}
-            className={cn(
-              "relative w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 text-sm font-medium group overflow-hidden",
-              "focus:outline-none focus-visible:outline-none focus:ring-0",
-              activeTabId === 'checklists'
-                ? "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/30 scale-[1.02]"
-                : "text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:shadow-md hover:scale-[1.02]",
-              loadingTabId === 'checklists' && "opacity-75 cursor-wait"
-            )}
-          >
-            {/* Active 指示器 */}
-            {activeTabId === 'checklists' && (
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r-full shadow-lg" />
-            )}
-
-            {loadingTabId === 'checklists' ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <ChevronRight
-                className={cn(
-                  "w-4 h-4 transition-all duration-300",
-                  isTreeOpen && "rotate-90",
-                  activeTabId === 'checklists' ? "" : "group-hover:scale-110"
-                )}
-              />
-            )}
-
-            <FolderTree className={cn(
-              "w-5 h-5 transition-all duration-300",
-              activeTabId === 'checklists' ? "scale-110" : "group-hover:scale-110"
-            )} />
-            <span className="flex-1 text-left">清单管理</span>
-            <Plus className={cn(
-              "w-4 h-4 transition-all duration-300",
-              activeTabId === 'checklists'
-                ? "opacity-100 scale-100"
-                : "opacity-0 scale-0 group-hover:opacity-100 group-hover:scale-100 group-hover:rotate-90"
-            )} />
-            {activeTabId === 'checklists' && loadingTabId !== 'checklists' && (
-              <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-            )}
-          </button>
-
-          {/* ✅ 真实清单树（展开时显示） */}
+          {/* 真实清单树（始终展开） */}
           <ChecklistTreeSidebar
-            isOpen={isTreeOpen}
-            onToggle={() => setTreeOpen(!isTreeOpen)}
+            isOpen={true}
+            onToggle={() => {}} // 空函数，禁用切换
             handleNavClick={handleNavClick}
             activePathChecker={isPathActive}
           />
@@ -277,7 +229,7 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      {/* 底部统计信息（保持原样） */}
+      {/* 底部统计信息 */}
       <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm">
         <div className="space-y-2.5">
           <div className="flex justify-between items-center group cursor-default px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200">

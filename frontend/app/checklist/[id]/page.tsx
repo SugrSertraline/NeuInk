@@ -2,9 +2,7 @@
 
 import React from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import {
-  ChevronRight,
   Search,
   Plus,
   FileText,
@@ -19,7 +17,13 @@ import {
   Tag,
   MessageSquare,
   Eye,
-  ExternalLink
+  ExternalLink,
+  Clock,
+  Filter,
+  ArrowUpDown,
+  ChevronDown,
+  User,
+  Hash
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import ReactMarkdown from 'react-markdown';
@@ -675,6 +679,7 @@ export default function ChecklistDetailPage() {
   const router = useRouter();
   const { addTab } = useTabStore();
 
+  // 先定义所有状态
   const [checklist, setChecklist] = React.useState<ChecklistNode | null>(null);
   const [papers, setPapers] = React.useState<PaperMetadata[]>([]);
   const [total, setTotal] = React.useState(0);
@@ -692,6 +697,16 @@ export default function ChecklistDetailPage() {
   // 搜索防抖
   const [searchQuery, setSearchQuery] = React.useState('');
   const searchTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  
+  // 搜索历史记录
+  const [searchHistory, setSearchHistory] = React.useState<string[]>([]);
+  const [showSearchHistory, setShowSearchHistory] = React.useState(false);
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
+  
+  // 排序选项
+  const [showSortOptions, setShowSortOptions] = React.useState(false);
+  const sortButtonRef = React.useRef<HTMLDivElement>(null);
+
 
   const loadChecklistData = React.useCallback(async () => {
     setLoading(true);
@@ -739,6 +754,18 @@ export default function ChecklistDetailPage() {
     load();
   }, [load]);
 
+  // 加载搜索历史
+  React.useEffect(() => {
+    const savedHistory = localStorage.getItem(`search-history-${id}`);
+    if (savedHistory) {
+      try {
+        setSearchHistory(JSON.parse(savedHistory));
+      } catch (error) {
+        console.error('加载搜索历史失败:', error);
+      }
+    }
+  }, [id]);
+
   // 搜索防抖处理
   React.useEffect(() => {
     if (searchTimerRef.current) {
@@ -748,6 +775,13 @@ export default function ChecklistDetailPage() {
     searchTimerRef.current = setTimeout(() => {
       setQ(searchQuery);
       setPage(1);
+      
+      // 保存搜索历史
+      if (searchQuery.trim()) {
+        const newHistory = [searchQuery.trim(), ...searchHistory.filter(h => h !== searchQuery.trim())].slice(0, 5);
+        setSearchHistory(newHistory);
+        localStorage.setItem(`search-history-${id}`, JSON.stringify(newHistory));
+      }
     }, 500);
 
     return () => {
@@ -755,13 +789,77 @@ export default function ChecklistDetailPage() {
         clearTimeout(searchTimerRef.current);
       }
     };
-  }, [searchQuery]);
+  }, [searchQuery, searchHistory, id]);
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
   };
 
+  const handleSearchFocus = () => {
+    setShowSearchHistory(true);
+  };
+
+  const handleSearchBlur = () => {
+    // 延迟隐藏，以便点击历史记录
+    setTimeout(() => setShowSearchHistory(false), 200);
+  };
+
+  const handleSearchHistoryClick = (query: string) => {
+    setSearchQuery(query);
+    setShowSearchHistory(false);
+    searchInputRef.current?.focus();
+  };
+
+  const clearSearchHistory = () => {
+    setSearchHistory([]);
+    localStorage.removeItem(`search-history-${id}`);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setQ('');
+    setPage(1);
+    searchInputRef.current?.focus();
+  };
+
+  // 排序选项处理
+  const sortOptions = [
+    { value: 'year:desc', label: '年份 ↓', icon: Calendar },
+    { value: 'year:asc', label: '年份 ↑', icon: Calendar },
+    { value: 'title:asc', label: '标题 A-Z', icon: FileText },
+    { value: 'title:desc', label: '标题 Z-A', icon: FileText },
+    { value: 'authors:asc', label: '作者 A-Z', icon: User },
+    { value: 'authors:desc', label: '作者 Z-A', icon: User },
+    { value: 'addedAt:desc', label: '添加时间 ↓', icon: Clock },
+    { value: 'addedAt:asc', label: '添加时间 ↑', icon: Clock }
+  ];
+
+  const getCurrentSortOption = () => {
+    return sortOptions.find(option => option.value === sort) || sortOptions[0];
+  };
+
+  const handleSortChange = (newSort: string) => {
+    setSort(newSort);
+    setShowSortOptions(false);
+    setPage(1); // 重置到第一页
+  };
+
+  // 点击外部关闭排序选项
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sortButtonRef.current && !sortButtonRef.current.contains(event.target as Node)) {
+        setShowSortOptions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   const toggleNotes = (paperId: string) => {
+    // 如果点击的是已经展开的论文，则关闭；否则展开新的论文
     setExpandedPaperId(expandedPaperId === paperId ? null : paperId);
   };
 
@@ -815,32 +913,14 @@ export default function ChecklistDetailPage() {
     );
   }
 
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950">
       <div className="flex h-screen">
         {/* 左侧边栏 - 精简的清单信息 */}
         <div className="w-80 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col">
-          {/* 面包屑 */}
-          <nav className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 p-4 pb-2">
-            <Link href="/checklists" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
-              清单管理
-            </Link>
-            <ChevronRight className="w-4 h-4" />
-            {checklist?.parentId && (
-              <>
-                <span className="text-slate-400 truncate max-w-20">
-                  {checklist.fullPath?.split('/')[0] || '分类'}
-                </span>
-                <ChevronRight className="w-4 h-4" />
-              </>
-            )}
-            <span className="text-slate-900 dark:text-white font-medium truncate">
-              {checklist?.name || '加载中...'}
-            </span>
-          </nav>
-
           {/* 标题栏 */}
-          <div className="p-4 pt-2 pb-4">
+          <div className="p-4 pt-4 pb-4">
             <h1 className="text-xl font-bold text-slate-900 dark:text-white mb-2 truncate">
               {checklist?.name || '加载中...'}
             </h1>
@@ -864,22 +944,100 @@ export default function ChecklistDetailPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
+                ref={searchInputRef}
                 value={searchQuery}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="搜索论文..."
-                className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+                onFocus={handleSearchFocus}
+                onBlur={handleSearchBlur}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setShowSearchHistory(false);
+                  }
+                }}
+                placeholder="搜索论文标题、作者..."
+                className="w-full pl-9 pr-10 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
               />
+              {searchQuery && (
+                <button
+                  onClick={handleClearSearch}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                  title="清除搜索"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+              
+              {/* 搜索历史下拉 */}
+              {showSearchHistory && searchHistory.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg z-10 overflow-hidden">
+                  <div className="p-2 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <span className="text-xs font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      搜索历史
+                    </span>
+                    <button
+                      onClick={clearSearchHistory}
+                      className="text-xs text-slate-500 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400 transition-colors"
+                    >
+                      清除
+                    </button>
+                  </div>
+                  <div className="max-h-32 overflow-y-auto">
+                    {searchHistory.map((query, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleSearchHistoryClick(query)}
+                        className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-2"
+                      >
+                        <Clock className="w-3 h-3 text-slate-400" />
+                        {query}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
-            >
-              <option value="year:desc">年份 ↓</option>
-              <option value="year:asc">年份 ↑</option>
-              <option value="title:asc">标题 A-Z</option>
-              <option value="title:desc">标题 Z-A</option>
-            </select>
+            
+            {/* 排序选项 */}
+            <div className="relative" ref={sortButtonRef}>
+              <button
+                onClick={() => setShowSortOptions(!showSortOptions)}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors focus:ring-2 focus:ring-emerald-500 outline-none"
+              >
+                <ArrowUpDown className="w-4 h-4 text-slate-500" />
+                <span className="flex-1 text-left">排序: {getCurrentSortOption().label}</span>
+                <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${showSortOptions ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {/* 排序选项下拉 */}
+              {showSortOptions && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg z-10 overflow-hidden">
+                  <div className="py-1">
+                    {sortOptions.map((option) => {
+                      const Icon = option.icon;
+                      const isActive = option.value === sort;
+                      return (
+                        <button
+                          key={option.value}
+                          onClick={() => handleSortChange(option.value)}
+                          className={`w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors ${
+                            isActive
+                              ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300'
+                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
+                          <span className="flex-1">{option.label}</span>
+                          {isActive && (
+                            <div className="w-2 h-2 bg-emerald-600 rounded-full" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* 论文列表 - 紧凑模式 */}
@@ -898,7 +1056,7 @@ export default function ChecklistDetailPage() {
                       ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 dark:border-emerald-700'
                       : 'bg-slate-50 dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700'
                       }`}
-                    onClick={() => setExpandedPaperId(paper.id)}
+                    onClick={() => toggleNotes(paper.id)}
                   >
                     <div className="flex items-start gap-2">
                       <span className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded bg-slate-200 dark:bg-slate-600 text-xs font-semibold text-slate-600 dark:text-slate-300">
@@ -940,18 +1098,14 @@ export default function ChecklistDetailPage() {
               <div className="text-center py-8">
                 <FileText className="w-12 h-12 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">
-                  {q ? '没有找到匹配的论文' : '该清单下还没有论文'}
+                  {q ? `没有找到匹配 "${q}" 的论文` : '该清单下还没有论文'}
                 </p>
                 {q && (
                   <button
-                    onClick={() => {
-                      setQ('');
-                      setSearchQuery('');
-                      setPage(1);
-                      loadPapersData();
-                    }}
-                    className="text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+                    onClick={handleClearSearch}
+                    className="text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 flex items-center gap-1 mx-auto"
                   >
+                    <X className="w-3 h-3" />
                     清除搜索条件
                   </button>
                 )}

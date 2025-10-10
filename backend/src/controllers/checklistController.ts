@@ -56,6 +56,42 @@ export async function getChecklistById(req: Request, res: Response) {
 }
 
 /**
+ * 根据路径获取清单详情
+ */
+export async function getChecklistByPath(req: Request, res: Response) {
+  try {
+    const { path } = req.query;
+
+    if (!path || typeof path !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: '路径参数不能为空'
+      });
+    }
+
+    const checklist = await Checklist.findByPath(path);
+
+    if (!checklist) {
+      return res.status(404).json({
+        success: false,
+        error: '清单不存在'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: checklist
+    });
+  } catch (error) {
+    console.error('通过路径获取清单详情失败:', error);
+    res.status(500).json({
+      success: false,
+      error: '获取清单详情失败'
+    });
+  }
+}
+
+/**
  * 创建清单
  */
 export async function createChecklist(req: Request, res: Response) {

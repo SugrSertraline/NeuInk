@@ -12,7 +12,8 @@
     "electron": "^27.0.0"
   },
   "devDependencies": {
-    "electron-builder": "^24.6.4"
+    "electron-builder": "^24.6.4",
+    "cross-env": "^7.0.3"
   },
   "build": {
     "appId": "com.neuink.app",

@@ -15,6 +15,8 @@ interface ChecklistStoreState {
   loadChecklists: () => Promise<void>;
   setTreeOpen: (open: boolean) => void;
   toggleExpand: (id: string) => void;
+  expandAll: () => void;
+  collapseAll: () => void;
 
   replaceNode: (node: ChecklistNode) => void;
   removeNode: (id: string) => void;
@@ -47,6 +49,27 @@ export const useChecklistStore = create<ChecklistStoreState>()(
         const map = { ...get().expandedIds };
         if (map[id]) delete map[id]; else map[id] = true;
         set({ expandedIds: map });
+      },
+
+      expandAll() {
+        const { checklists } = get();
+        const allIds: Record<string, true> = {};
+        
+        const collectIds = (nodes: ChecklistNode[]) => {
+          nodes.forEach(node => {
+            allIds[node.id] = true;
+            if (node.children?.length) {
+              collectIds(node.children);
+            }
+          });
+        };
+        
+        collectIds(checklists);
+        set({ expandedIds: allIds });
+      },
+
+      collapseAll() {
+        set({ expandedIds: {} });
       },
 
       replaceNode(node) {

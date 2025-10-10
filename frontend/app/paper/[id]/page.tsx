@@ -137,6 +137,7 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
         setError(e?.message || String(e));
       } finally {
         setLoading(false);
+        // 全局加载状态由 useRouteLoading 自动管理，无需手动清除
       }
     };
     fetchPaperContent();

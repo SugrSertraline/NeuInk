@@ -13,6 +13,7 @@ router.post('/clean-orphans', checklistController.cleanOrphanNotes);  // 🆕 �
 // 清单 CRUD
 router.get('/', checklistController.getAllChecklists);
 router.post('/', checklistController.createChecklist);
+router.get('/by-path', checklistController.getChecklistByPath);  // 新增通过路径查找清单的端点
 router.get('/:id', checklistController.getChecklistById);
 router.put('/:id', checklistController.updateChecklist);
 router.delete('/:id', checklistController.deleteChecklist);

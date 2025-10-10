@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, FolderOpen, Check } from 'lucide-react';
 import { fetchChecklistTree, addPapersToChecklist, fetchPaperChecklists } from '@/app/lib/checklistApi';
+import { apiDelete } from '@/app/lib/api';
 import type { ChecklistNode } from '@neuink/shared';
 
 interface AddToChecklistDialogProps {
@@ -80,9 +81,7 @@ export default function AddToChecklistDialog({
 
       // 执行移除
       for (const checklistId of toRemove) {
-        await fetch(`/api/checklists/${checklistId}/papers/${paperId}`, {
-          method: 'DELETE',
-        });
+        await apiDelete(`/api/checklists/${checklistId}/papers/${paperId}`);
       }
 
       alert('✓ 保存成功！');

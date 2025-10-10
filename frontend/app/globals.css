@@ -67,6 +67,83 @@
 *::after {
   outline: none !important;
   -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* 允许特定元素选择文本 */
+input, textarea, [contenteditable="true"], .prose, .prose * {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+/* Electron 特定样式 */
+.electron-app {
+  -webkit-app-region: no-drag;
+}
+
+.electron-app * {
+  -webkit-user-select: none;
+}
+
+.electron-app input,
+.electron-app textarea,
+.electron-app [contenteditable="true"],
+.electron-app .prose,
+.electron-app .prose * {
+  -webkit-user-select: text;
+}
+
+/* 自定义标题栏样式 */
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+.no-drag-region {
+  -webkit-app-region: no-drag;
+}
+
+/* 标题栏按钮悬停效果 */
+.titlebar-button {
+  -webkit-app-region: no-drag;
+  transition: all 0.15s ease;
+}
+
+.titlebar-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.titlebar-button.close:hover {
+  background-color: #e81123 !important;
+}
+
+/* 暗色模式下的标题栏按钮 */
+.dark .titlebar-button:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.dark .titlebar-button.close:hover {
+  background-color: #e81123 !important;
+}
+
+/* 防止按钮文本被选中 */
+button, .button {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+/* 防止标题和标签文本被选中 */
+h1, h2, h3, h4, h5, h6, .title, .label, .tab {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
 }
 
 .prose {

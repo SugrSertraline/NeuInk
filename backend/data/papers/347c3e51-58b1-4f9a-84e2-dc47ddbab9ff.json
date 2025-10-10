@@ -48,17 +48,6 @@
       ],
       "createdAt": "2025-10-08T14:14:53.895Z",
       "updatedAt": "2025-10-09T07:11:49.212Z"
-    },
-    {
-      "id": "note-1759993899361-4qmvfczvm",
-      "checklistId": "25ee44dc-1eca-45cf-9b9c-5b5d73edb917",
-      "checklistPath": "测测/你好",
-      "content": "哈**哈哈发**发发则巨额",
-      "tags": [
-        "你好"
-      ],
-      "createdAt": "2025-10-09T07:11:39.361Z",
-      "updatedAt": "2025-10-09T07:11:39.361Z"
     }
   ],
   "attachments": []

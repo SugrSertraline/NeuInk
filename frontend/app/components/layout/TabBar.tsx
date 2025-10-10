@@ -51,6 +51,7 @@ export default function TabBar() {
     e.stopPropagation();
     (document.activeElement as HTMLElement)?.blur();
 
+    // 首页标签无法关闭
     if (tab.id === 'dashboard') return;
     
     // 如果关闭的是当前激活的标签，需要切换到左边的标签
@@ -59,11 +60,11 @@ export default function TabBar() {
       
       let targetTab: Tab | null = null;
       
-      // 找到左边的标签（如果存在）
+      // 优先找到左边的标签
       if (currentIndex > 0) {
         targetTab = tabs[currentIndex - 1];
       } else if (tabs.length > 1) {
-        // 如果是第一个标签，切换到右边的标签
+        // 如果是第一个标签（但不是 dashboard），切换到右边的标签
         targetTab = tabs[currentIndex + 1];
       }
       
@@ -76,16 +77,18 @@ export default function TabBar() {
           try {
             setActiveTab(targetTab.id);
             await router.push(targetTab.path);
-            setLoading(false, null);
+            setTimeout(() => {
+              setLoading(false, null);
+            }, 300);
           } catch (error) {
             console.error('Navigation error:', error);
             setLoading(false, null);
           }
         }
       }
-      
     }
     
+    // 关闭标签
     closeTab(tab.id);
   };
 
@@ -108,17 +111,17 @@ export default function TabBar() {
 
         return (
           <button
-          key={tab.id}
-          onClick={() => onClickTab(tab)}
-          disabled={isLoading}
-          className={cn(
-            baseBtn,
-            "focus:outline-none focus-visible:outline-none focus:ring-0",
-            isActive ? activeStylesMap[tab.type] : inactiveStyles,
-            isLoading && "opacity-75 cursor-wait"
-          )}
-          title={tab.title}
-        >
+            key={tab.id}
+            onClick={() => onClickTab(tab)}
+            disabled={isLoading}
+            className={cn(
+              baseBtn,
+              "focus:outline-none focus-visible:outline-none focus:ring-0",
+              isActive ? activeStylesMap[tab.type] : inactiveStyles,
+              isLoading && "opacity-75 cursor-wait"
+            )}
+            title={tab.title}
+          >
             {isActive && (
               <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r-full shadow-lg" />
             )}
@@ -131,11 +134,12 @@ export default function TabBar() {
 
             {isActive && !isLoading && <div className="w-2 h-2 bg-white rounded-full animate-pulse" />}
 
+            {/* 只有非首页标签才显示关闭按钮 */}
             {tab.id !== 'dashboard' && (
               <X
                 onClick={(e) => onCloseTab(e, tab)}
                 className={cn(
-                  "w-4 h-4 transition-all duration-300",
+                  "w-4 h-4 transition-all duration-300 hover:text-red-400",
                   isActive ? "" : "opacity-60 group-hover:opacity-100 group-hover:scale-110"
                 )}
               />

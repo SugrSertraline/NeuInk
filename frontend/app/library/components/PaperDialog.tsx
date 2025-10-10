@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Author } from '@neuink/shared';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001';
+import { apiPost, apiPut } from '@/app/lib/api';
 
 interface PaperDialogProps {
   open: boolean;
@@ -180,35 +180,18 @@ export default function PaperDialog({ open, mode, paper, onClose, onSuccess }: P
         remarks: remarks.trim() || undefined,
       };
 
-      let response: Response;
+      let result: any;
       let paperId: string | undefined;
 
       if (mode === 'create') {
-        response = await fetch(`${API_BASE}/api/papers`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(paperData),
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          paperId = result.data?.id || result.id;
-        }
+        result = await apiPost<any>('/api/papers', paperData);
+        paperId = result?.id;
       } else {
-        response = await fetch(`${API_BASE}/api/papers/${paper.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...paperData,
-            readingStatus: readingStatus,
-            rating: rating > 0 ? rating : undefined,
-          }),
+        result = await apiPut<any>(`/api/papers/${paper.id}`, {
+          ...paperData,
+          readingStatus: readingStatus,
+          rating: rating > 0 ? rating : undefined,
         });
-      }
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || errorData.message || `${mode === 'create' ? '创建' : '更新'}失败`);
       }
 
       resetForm();

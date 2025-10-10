@@ -63,6 +63,15 @@ export class Checklist {
     );
   }
 
+  /** 根据路径获取清单 */
+  static async findByPath(path: string): Promise<ChecklistRecord | undefined> {
+    const db = await getDatabase();
+    return await db.get<ChecklistRecord>(
+      `SELECT ${SELECT_FIELDS} FROM checklists WHERE full_path = ?`,
+      path
+    );
+  }
+
   /** 创建清单 */
   static async create(data: {
     id: string;

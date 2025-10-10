@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { apiGetData } from '../lib/api';
+import { apiGetData, apiDelete } from '../lib/api';
 import type { PaperMetadata, PaperRecord } from '@neuink/shared';
 import { useTabStore } from '../store/useTabStore';
 import { TABLE_COLUMNS } from './utils/paperHelpers';
@@ -30,7 +30,7 @@ type ViewMode = 'card' | 'table' | 'compact';
 
 export default function LibraryPage() {
   const router = useRouter();
-  const { addTab, setActiveTab, tabs, setLoading: setGlobalLoading } = useTabStore();
+  const { addTab, setActiveTab, tabs } = useTabStore();
 
   // 视图与UI
   const [viewMode, setViewMode] = React.useState<ViewMode>('card');
@@ -91,17 +91,12 @@ export default function LibraryPage() {
   const openPaper = async (paper: PaperMetadata) => {
     const id = `paper:${paper.id}`;
     const path = `/paper/${paper.id}`;
-    setGlobalLoading(true, id);
-    try {
-      if (!tabs.find((t) => t.id === id)) {
-        addTab({ id, type: 'paper', title: paper.title, path, data: { paperId: paper.id } });
-      }
-      setActiveTab(id);
-      await router.push(path);
-    } catch (error) {
-      console.error('Navigation error:', error);
-      setGlobalLoading(false, null);
+    // 全局加载状态由 useRouteLoading 自动管理，无需手动设置
+    if (!tabs.find((t) => t.id === id)) {
+      addTab({ id, type: 'paper', title: paper.title, path, data: { paperId: paper.id } });
     }
+    setActiveTab(id);
+    await router.push(path);
   };
 
   const handlePaperDialogSuccess = async () => {
@@ -392,7 +387,7 @@ function PapersSection(props: {
   const handleDelete = async (paper: PaperMetadata) => {
     if (confirm(`确定要删除论文「${paper.title}」吗？`)) {
       try {
-        await fetch(`${API_BASE}/api/papers/${paper.id}`, { method: 'DELETE' });
+        await apiDelete(`/api/papers/${paper.id}`);
         await loadPapers();
       } catch (err: any) {
         alert(`删除失败: ${err.message}`);
