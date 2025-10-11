@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react'; // 如果已有，忽略
+import { useState, useRef } from 'react';
 import TextSelectionToolbar from './TextSelectionToolbar';
 import { 
   toggleBold, 
@@ -10,12 +10,12 @@ import {
   clearAllStyles 
 } from '../utils/inlineContentUtils';
 import type { ParagraphBlock, HeadingBlock } from '../../../types/paper';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import type { BlockContent, Section } from '../../../types/paper';
 import InlineRenderer from './InlineRenderer';
 import type { Reference } from '../../../types/paper';
 import katex from 'katex';
-import { API_BASE, toAbsoluteUrl } from '../../../lib/api';
+import { toAbsoluteUrl } from '../../../lib/api';
 
 interface BlockRendererProps {
   block: BlockContent;
@@ -64,38 +64,56 @@ export default function BlockRenderer({
   searchQuery = '',
   allSections = [],
   contentRef,
-  onBlockUpdate // 🆕 新增
+  onBlockUpdate
 }: BlockRendererProps) {
-  // 🆕 文本选择工具栏状态
   const [showToolbar, setShowToolbar] = useState(false);
   const [toolbarPos, setToolbarPos] = useState({ x: 0, y: 0 });
   const [selectedText, setSelectedText] = useState('');
+  const blockRef = useRef<HTMLDivElement>(null);
 
-  const baseClass = `transition-all duration-200 rounded-lg ${isActive ? 'bg-blue-50 ring-2 ring-blue-200 shadow-sm' : ''
-    }`;
+  const baseClass = `transition-all duration-200 rounded-lg ${
+    isActive ? 'bg-blue-50 ring-2 ring-blue-200 shadow-sm' : ''
+  }`;
 
-  // 🆕 处理文本选择
+  // ✅ 改进的文本选择处理
   const handleTextSelection = (e: React.MouseEvent) => {
     // 只在段落和标题块中启用
     if (block.type !== 'paragraph' && block.type !== 'heading') return;
     if (!onBlockUpdate) return;
 
-    // 🆕 延迟执行，确保选择完成
+    // 延迟执行，确保选择完成
     setTimeout(() => {
       const selection = window.getSelection();
       const text = selection?.toString().trim();
 
       if (text && text.length > 0) {
+        // ✅ 确保选区在当前块内
         const range = selection?.getRangeAt(0);
-        const rect = range?.getBoundingClientRect();
+        if (!range) return;
 
+        // 检查选区是否在当前块内
+        const blockElement = blockRef.current;
+        if (!blockElement || !blockElement.contains(range.commonAncestorContainer)) {
+          setShowToolbar(false);
+          return;
+        }
+
+        const rect = range.getBoundingClientRect();
         if (rect) {
           setSelectedText(text);
+          
+          // ✅ 计算工具栏位置（相对于视口）
           setToolbarPos({
             x: rect.left + rect.width / 2,
-            y: rect.top + window.scrollY
+            y: rect.top - 10 // 工具栏显示在选区上方
           });
+          
           setShowToolbar(true);
+          
+          console.log('=== 文本选择调试 ===');
+          console.log('选中的文本:', text);
+          console.log('块类型:', block.type);
+          console.log('当前内容:', (block as any).content?.[lang]);
         }
       } else {
         setShowToolbar(false);
@@ -103,59 +121,71 @@ export default function BlockRenderer({
     }, 10);
   };
 
-  // 🆕 应用样式
-const applyStyle = (styleType: 'bold' | 'italic' | 'underline' | 'color' | 'bg' | 'clear', value?: string) => {
-  if (!onBlockUpdate || !selectedText) return;
-  
-  const currentBlock = block as ParagraphBlock | HeadingBlock;
-  const currentContent = currentBlock.content?.[lang];
-  
-  if (!currentContent) return;
-  
-  let newContent = currentContent;
-  
-  switch (styleType) {
-    case 'bold':
-      newContent = toggleBold(currentContent, selectedText);
-      break;
-    case 'italic':
-      newContent = toggleItalic(currentContent, selectedText);
-      break;
-    case 'underline':
-      newContent = toggleUnderline(currentContent, selectedText);
-      break;
-    case 'color':
-      if (value !== undefined) {
-        newContent = applyTextColor(currentContent, selectedText, value);
-      }
-      break;
-    case 'bg':
-      if (value !== undefined) {
-        newContent = applyBackgroundColor(currentContent, selectedText, value);
-      }
-      break;
-    case 'clear':
-      newContent = clearAllStyles(currentContent, selectedText);
-      break;
-  }
-  
-  const updatedBlock = {
-    ...currentBlock,
-    content: {
-      ...currentBlock.content,
-      [lang]: newContent
+  // ✅ 应用样式
+  const applyStyle = (
+    styleType: 'bold' | 'italic' | 'underline' | 'color' | 'bg' | 'clear',
+    value?: string
+  ) => {
+    if (!onBlockUpdate || !selectedText) return;
+    
+    const currentBlock = block as ParagraphBlock | HeadingBlock;
+    const currentContent = currentBlock.content?.[lang];
+    
+    if (!currentContent) return;
+    
+    console.log('=== 应用样式 ===');
+    console.log('样式类型:', styleType);
+    console.log('样式值:', value);
+    console.log('选中文本:', selectedText);
+    console.log('原内容:', currentContent);
+    
+    let newContent = currentContent;
+    
+    switch (styleType) {
+      case 'bold':
+        newContent = toggleBold(currentContent, selectedText);
+        break;
+      case 'italic':
+        newContent = toggleItalic(currentContent, selectedText);
+        break;
+      case 'underline':
+        newContent = toggleUnderline(currentContent, selectedText);
+        break;
+      case 'color':
+        if (value !== undefined) {
+          newContent = applyTextColor(currentContent, selectedText, value);
+        }
+        break;
+      case 'bg':
+        if (value !== undefined) {
+          newContent = applyBackgroundColor(currentContent, selectedText, value);
+        }
+        break;
+      case 'clear':
+        newContent = clearAllStyles(currentContent, selectedText);
+        break;
     }
+    
+    console.log('新内容:', newContent);
+    
+    const updatedBlock = {
+      ...currentBlock,
+      content: {
+        ...currentBlock.content,
+        [lang]: newContent
+      }
+    };
+    
+    // 更新内容
+    onBlockUpdate(updatedBlock);
+    
+    // 延迟关闭工具栏
+    setTimeout(() => {
+      setShowToolbar(false);
+      window.getSelection()?.removeAllRanges();
+    }, 100);
   };
-  
-  // 🆕 先更新内容，延迟关闭工具栏和清除选择
-  onBlockUpdate(updatedBlock);
-  
-  // 🆕 延迟500ms让用户看到效果，再关闭工具栏
-  setTimeout(() => {
-    setShowToolbar(false);
-    window.getSelection()?.removeAllRanges();
-  }, 100);
-};
+
   const renderContent = () => {
     switch (block.type) {
       case 'heading': {
@@ -169,23 +199,24 @@ const applyStyle = (styleType: 'bold' | 'italic' | 'underline' | 'color' | 'bg' 
         } as const;
 
         const commonProps = {
-  className: `${headingSizes[block.level]} font-bold text-gray-900 mb-2`,
-  onMouseUp: handleTextSelection,
-  style: { userSelect: 'text' as const }, // 🆕 明确允许文本选择
-  children: (
-    <>
-      {block.number && <span className="text-blue-600 mr-2">{block.number}</span>}
-      <InlineRenderer 
-        nodes={block.content?.[lang]} 
-        references={references}
-        onCitationClick={onCitationClick}
-        searchQuery={searchQuery}
-        allSections={allSections}
-        contentRef={contentRef}
-      />
-    </>
-  )
-};
+          className: `${headingSizes[block.level]} font-bold text-gray-900 mb-2`,
+          onMouseUp: handleTextSelection,
+          style: { userSelect: 'text' as const },
+          children: (
+            <>
+              {block.number && <span className="text-blue-600 mr-2">{block.number}</span>}
+              <InlineRenderer 
+                nodes={block.content?.[lang]} 
+                references={references}
+                onCitationClick={onCitationClick}
+                searchQuery={searchQuery}
+                allSections={allSections}
+                contentRef={contentRef}
+              />
+            </>
+          )
+        };
+
         switch (block.level) {
           case 1: return <h1 {...commonProps} />;
           case 2: return <h2 {...commonProps} />;
@@ -197,32 +228,32 @@ const applyStyle = (styleType: 'bold' | 'italic' | 'underline' | 'color' | 'bg' 
         }
       }
 
-
       case 'paragraph': {
-  const alignClass = {
-    left: 'text-left',
-    center: 'text-center',
-    right: 'text-right',
-    justify: 'text-justify'
-  }[block.align || 'left'];
-  
-  return (
-    <p 
-      className={`text-gray-700 leading-relaxed ${alignClass}`}
-      onMouseUp={handleTextSelection}
-      style={{ userSelect: 'text' }} // 🆕 明确允许文本选择
-    >
-      <InlineRenderer 
-        nodes={block.content?.[lang]} 
-        references={references}
-        onCitationClick={onCitationClick}
-        searchQuery={searchQuery}
-        allSections={allSections}
-        contentRef={contentRef} 
-      />
-    </p>
-  );
-}
+        const alignClass = {
+          left: 'text-left',
+          center: 'text-center',
+          right: 'text-right',
+          justify: 'text-justify'
+        }[block.align || 'left'];
+        
+        return (
+          <p 
+            className={`text-gray-700 leading-relaxed ${alignClass}`}
+            onMouseUp={handleTextSelection}
+            style={{ userSelect: 'text' }}
+          >
+            <InlineRenderer 
+              nodes={block.content?.[lang]} 
+              references={references}
+              onCitationClick={onCitationClick}
+              searchQuery={searchQuery}
+              allSections={allSections}
+              contentRef={contentRef} 
+            />
+          </p>
+        );
+      }
+
       case 'math': {
         return (
           <div className="my-4">
@@ -241,7 +272,6 @@ const applyStyle = (styleType: 'bold' | 'italic' | 'underline' | 'color' | 'bg' 
       case 'figure': {
         return (
           <figure className="my-6">
-            {/* ✅ 添加条件判断 */}
             {block.src ? (
               <img
                 src={toAbsoluteUrl(block.src)}
@@ -261,7 +291,6 @@ const applyStyle = (styleType: 'bold' | 'italic' | 'underline' | 'color' | 'bg' 
               </div>
             )}
 
-            {/* Caption 保持不变 */}
             <figcaption className="text-sm text-gray-600 mt-3 text-center px-4">
               {block.number && (
                 <span className="font-semibold text-gray-800">Figure {block.number}. </span>
@@ -287,7 +316,6 @@ const applyStyle = (styleType: 'bold' | 'italic' | 'underline' | 'color' | 'bg' 
           </figure>
         );
       }
-
 
       case 'table': {
         return (
@@ -444,6 +472,7 @@ const applyStyle = (styleType: 'bold' | 'italic' | 'underline' | 'color' | 'bg' 
   return (
     <>
       <div
+        ref={blockRef}
         id={block.id}
         className={`${baseClass} p-2 mb-3`}
         onMouseEnter={onMouseEnter}
@@ -451,18 +480,19 @@ const applyStyle = (styleType: 'bold' | 'italic' | 'underline' | 'color' | 'bg' 
       >
         {renderContent()}
       </div>
-{showToolbar && (
-  <TextSelectionToolbar
-    onBold={() => applyStyle('bold')}
-    onItalic={() => applyStyle('italic')}
-    onUnderline={() => applyStyle('underline')}
-    onColor={(color) => applyStyle('color', color)}
-    onBackgroundColor={(bg) => applyStyle('bg', bg)}
-    onClearStyles={() => applyStyle('clear')}
-    position={toolbarPos}
-    onClose={() => setShowToolbar(false)}
-  />
-)}
+      
+      {showToolbar && (
+        <TextSelectionToolbar
+          onBold={() => applyStyle('bold')}
+          onItalic={() => applyStyle('italic')}
+          onUnderline={() => applyStyle('underline')}
+          onColor={(color) => applyStyle('color', color)}
+          onBackgroundColor={(bg) => applyStyle('bg', bg)}
+          onClearStyles={() => applyStyle('clear')}
+          position={toolbarPos}
+          onClose={() => setShowToolbar(false)}
+        />
+      )}
     </>
   );
 }

@@ -1,7 +1,7 @@
 // app/papers/[id]/components/UnifiedNotesPanel.tsx
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { X, Save, Plus, Trash2, Tag, Edit3, FileText, FolderOpen, AlertCircle, ChevronDown } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import ReactMarkdown from 'react-markdown';
@@ -47,6 +47,11 @@ export default function UnifiedNotesPanel({
   const [editTags, setEditTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState('');
   const [selectorOpen, setSelectorOpen] = useState(false);
+  
+  // 添加 ref 存储编辑器实例和初始值
+  const mdeInstanceRef = useRef<any>(null);
+  const initialContentRef = useRef<string>('');
+  const [editorKey, setEditorKey] = useState(0);
 
   // 获取当前选中的清单信息
   const selectedChecklist = useMemo(() => {
@@ -92,6 +97,8 @@ export default function UnifiedNotesPanel({
     setEditingNoteId(null);
     setEditContent('');
     setEditTags([]);
+    initialContentRef.current = '';
+    setEditorKey(prev => prev + 1);
   };
 
   // 编辑已有笔记
@@ -100,6 +107,8 @@ export default function UnifiedNotesPanel({
     setEditingNoteId(note.id);
     setEditContent(note.content);
     setEditTags(note.tags || []);
+    initialContentRef.current = note.content;
+    setEditorKey(prev => prev + 1);
   };
 
   // 添加标签
@@ -117,7 +126,10 @@ export default function UnifiedNotesPanel({
 
   // 保存笔记
   const handleSaveNote = async () => {
-    if (!editContent.trim()) {
+    // 从编辑器实例获取最新内容
+    const currentContent = mdeInstanceRef.current?.value() || editContent;
+    
+    if (!currentContent.trim()) {
       alert('笔记内容不能为空');
       return;
     }
@@ -131,14 +143,14 @@ export default function UnifiedNotesPanel({
       if (editingNoteId) {
         updatedBlockNotes = (content.blockNotes || []).map(note =>
           note.id === editingNoteId
-            ? { ...note, content: editContent, tags: editTags, updatedAt: new Date().toISOString() }
+            ? { ...note, content: currentContent, tags: editTags, updatedAt: new Date().toISOString() }
             : note
         );
       } else {
         const newNote: BlockNote = {
           id: `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           blockId: activeBlockId,
-          content: editContent,
+          content: currentContent,
           tags: editTags,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -154,7 +166,7 @@ export default function UnifiedNotesPanel({
       if (currentChecklistNote) {
         updatedChecklistNotes = (content.checklistNotes || []).map(note =>
           note.checklistId === activeChecklistId
-            ? { ...note, content: editContent, tags: editTags, updatedAt: new Date().toISOString() }
+            ? { ...note, content: currentContent, tags: editTags, updatedAt: new Date().toISOString() }
             : note
         );
       } else {
@@ -162,7 +174,7 @@ export default function UnifiedNotesPanel({
           id: `checklist-note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           checklistId: activeChecklistId,
           checklistPath: selectedChecklist.fullPath,
-          content: editContent,
+          content: currentContent,
           tags: editTags,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -180,6 +192,8 @@ export default function UnifiedNotesPanel({
     if (success) {
       setIsEditing(false);
       setEditingNoteId(null);
+      setEditContent('');
+      initialContentRef.current = '';
       alert('✓ 笔记保存成功！');
     } else {
       alert('❌ 保存失败，请重试');
@@ -211,11 +225,14 @@ export default function UnifiedNotesPanel({
 
   // 取消编辑
   const handleCancelEdit = () => {
-    if (editContent.trim() && !confirm('有未保存的更改，确定要放弃吗？')) {
+    const currentContent = mdeInstanceRef.current?.value() || editContent;
+    if (currentContent.trim() && !confirm('有未保存的更改，确定要放弃吗？')) {
       return;
     }
     setIsEditing(false);
     setEditingNoteId(null);
+    setEditContent('');
+    initialContentRef.current = '';
   };
 
   // 渲染清单选择器（使用原有 ChecklistSelector 风格）
@@ -528,9 +545,19 @@ export default function UnifiedNotesPanel({
                 笔记内容
               </label>
               <SimpleMDE
-                value={editContent}
-                onChange={setEditContent}
-                options={editorOptions}
+                key={`mde-${editorKey}`}
+                value={initialContentRef.current}
+                getMdeInstance={(mde) => {
+                  mdeInstanceRef.current = mde;
+                }}
+                options={{
+                  ...editorOptions,
+                  autoDownloadFontAwesome: true,
+                  renderingConfig: {
+                    singleLineBreaks: false,
+                    codeSyntaxHighlighting: true,
+                  }
+                }}
               />
             </div>
 

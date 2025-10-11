@@ -17,174 +17,22 @@
       },
       "content": [
         {
-          "id": "block-p1",
-          "type": "paragraph",
-          "content": {
-            "en": [
-              {
-                "type": "text",
-                "content": "fff"
-              },
-              {
-                "type": "text",
-                "content": "ffffff",
-                "style": {
-                  "color": "#ef4444"
-                }
-              },
-              {
-                "type": "figure-ref",
-                "figureId": "figure_1760163076381",
-                "displayText": "Figure 1"
-              },
-              {
-                "type": "text",
-                "content": "t neural networks,tyests,",
-                "style": {
-                  "color": "#ef4444"
-                }
-              },
-              {
-                "type": "equation-ref",
-                "equationId": "block-math-1",
-                "displayText": "Equation 1"
-              },
-              {
-                "type": "text",
-                "content": " long short-term ",
-                "style": {
-                  "color": "#ef4444",
-                  "underline": true
-                }
-              },
-              {
-                "type": "text",
-                "content": "memory "
-              },
-              {
-                "type": "citation",
-                "referenceIds": [
-                  "re____f-1",
-                  "ref-2"
-                ],
-                "displayText": "re____f-1,ref-2"
-              },
-              {
-                "type": "text",
-                "content": " and gate](url"
-              },
-              {
-                "type": "text",
-                "content": ")d recurrent ",
-                "style": {
-                  "backgroundColor": "#fee2e2"
-                }
-              },
-              {
-                "type": "citation",
-                "referenceIds": [
-                  "ref-3"
-                ],
-                "displayText": "ref-3"
-              },
-              {
-                "type": "text",
-                "content": " n",
-                "style": {
-                  "backgroundColor": "#fee2e2"
-                }
-              },
-              {
-                "type": "text",
-                "content": "eural networks in particular, have been firmly established as state of the art approaches in sequence modeling and transducti",
-                "style": {
-                  "color": "#ef4444",
-                  "backgroundColor": "#fee2e2"
-                }
-              },
-              {
-                "type": "text",
-                "content": "on problems such as langua",
-                "style": {
-                  "color": "#ef4444"
-                }
-              },
-              {
-                "type": "text",
-                "content": "ge modeling and m",
-                "style": {
-                  "color": "#ef4444",
-                  "bold": true
-                }
-              },
-              {
-                "type": "text",
-                "content": "achine translati",
-                "style": {
-                  "color": "#ef4444"
-                }
-              },
-              {
-                "type": "text",
-                "content": "on "
-              },
-              {
-                "type": "citation",
-                "referenceIds": [
-                  "ref-4",
-                  "ref-5",
-                  "ref-6"
-                ],
-                "displayText": "ref-4,ref-5,ref-6"
-              },
-              {
-                "type": "text",
-                "content": "."
-              }
-            ],
-            "zh": [
-              {
-                "type": "text",
-                "content": "循环神经网络，特别是长短期记忆网络 "
-              },
-              {
-                "type": "citation",
-                "referenceIds": [
-                  "ref-1",
-                  "ref-2"
-                ],
-                "displayText": "[1, 2]"
-              },
-              {
-                "type": "text",
-                "content": " 和门控循环神经网络 "
-              },
-              {
-                "type": "citation",
-                "referenceIds": [
-                  "ref-3"
-                ],
-                "displayText": "[3]"
-              },
-              {
-                "type": "text",
-                "content": "，已经被牢固地确立为序列建模和转换问题的最先进方法。"
-              }
-            ]
-          }
-        },
-        {
           "id": "block-p1-2",
           "type": "paragraph",
           "content": {
             "en": [
               {
-                "type": "text",
-                "content": "Recurrent models typically factor computatio"
+                "type": "citation",
+                "referenceIds": [
+                  "ref-1",
+                  "ref-2",
+                  "ref-3"
+                ],
+                "displayText": ""
               },
               {
                 "type": "text",
-                "content": "n along the symbol positions of the input and output sequences. The sequential nature fundamentally limits the parallelization of training examples",
+                "content": "Recurrent models typically factor computation along the symbol positions of the input and output sequences. The sequential nature fundamentally limits the parallelization of training examples",
                 "style": {
                   "bold": true
                 }
@@ -197,14 +45,14 @@
               },
               {
                 "type": "text",
-                "content": ", which becomes critical at longer s",
+                "content": ", which becomes critical at longer seq",
                 "style": {
                   "bold": true
                 }
               },
               {
                 "type": "text",
-                "content": "equence lengths. For more details, see "
+                "content": "uence lengths. For more details, see "
               },
               {
                 "type": "link",
@@ -554,7 +402,18 @@
             "en": [
               {
                 "type": "text",
-                "content": "Key architectural features include:"
+                "content": "Key architectural f"
+              },
+              {
+                "type": "text",
+                "content": "eatures inclu",
+                "style": {
+                  "color": "#ef4444"
+                }
+              },
+              {
+                "type": "text",
+                "content": "de:"
               }
             ]
           }
@@ -615,19 +474,29 @@
             "en": [
               {
                 "type": "text",
-                "content": "An attention function can be described as mapping a query and a set of key-value pairs to an output. The attention mechanism we use is called ",
-                "style": {}
+                "content": "A"
+              },
+              {
+                "type": "text",
+                "content": "n attention function can be described as mapping a query and a set of key-value pairs to an output. The attention mechanism we use is called ",
+                "style": {
+                  "color": "#ef4444"
+                }
               },
               {
                 "type": "text",
                 "content": "Scaled Dot-Product Attention",
                 "style": {
-                  "italic": true
+                  "italic": true,
+                  "color": "#ef4444"
                 }
               },
               {
                 "type": "text",
-                "content": ":"
+                "content": ":",
+                "style": {
+                  "color": "#ef4444"
+                }
               }
             ]
           }
@@ -695,7 +564,14 @@
               },
               {
                 "type": "text",
-                "content": " to prevent the dot products from growing too large"
+                "content": " to prevent the dot products fro"
+              },
+              {
+                "type": "text",
+                "content": "m growing too large",
+                "style": {
+                  "color": "#ef4444"
+                }
               },
               {
                 "type": "footnote",
@@ -705,7 +581,10 @@
               },
               {
                 "type": "text",
-                "content": "."
+                "content": ".",
+                "style": {
+                  "color": "#ef4444"
+                }
               }
             ]
           }
@@ -730,7 +609,69 @@
             "en": [
               {
                 "type": "text",
-                "content": "Multi-head attention allows the model to jointly attend to information from different representation subspaces. The formula is:"
+                "content": "Mult"
+              },
+              {
+                "type": "text",
+                "content": "i-head attentio",
+                "style": {
+                  "bold": true
+                }
+              },
+              {
+                "type": "text",
+                "content": "n al",
+                "style": {
+                  "bold": true,
+                  "italic": true
+                }
+              },
+              {
+                "type": "text",
+                "content": "lows the model t",
+                "style": {
+                  "color": "#ef4444",
+                  "bold": true,
+                  "italic": true
+                }
+              },
+              {
+                "type": "text",
+                "content": "o jointly attend to information from dif",
+                "style": {
+                  "color": "#ef4444",
+                  "bold": true,
+                  "italic": true,
+                  "backgroundColor": "#fee2e2"
+                }
+              },
+              {
+                "type": "text",
+                "content": "ferent represe",
+                "style": {
+                  "color": "#ef4444",
+                  "backgroundColor": "#fee2e2",
+                  "bold": true
+                }
+              },
+              {
+                "type": "text",
+                "content": "ntation",
+                "style": {
+                  "backgroundColor": "#fee2e2",
+                  "bold": true
+                }
+              },
+              {
+                "type": "text",
+                "content": " subspaces. The f",
+                "style": {
+                  "bold": true
+                }
+              },
+              {
+                "type": "text",
+                "content": "ormula is:"
               }
             ]
           }

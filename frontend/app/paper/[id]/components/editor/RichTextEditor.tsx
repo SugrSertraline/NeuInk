@@ -1,7 +1,7 @@
 // frontend/app/papers/[id]/components/editor/RichTextEditor.tsx
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useReducer } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -12,7 +12,7 @@ import Highlight from '@tiptap/extension-highlight';
 import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough, Code,
   Palette, Highlighter, Link as LinkIcon, Calculator,
-  FileText, Image, Table, Sigma, Hash, StickyNote, X, Search
+  FileText, Image, Table, Sigma, Hash, StickyNote, X, Search, Check
 } from 'lucide-react';
 
 import type { InlineContent, Reference, Section } from '../../../../types/paper';
@@ -51,6 +51,11 @@ export default function RichTextEditor({
   const [refSearchQuery, setRefSearchQuery] = useState('');
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showBgPicker, setShowBgPicker] = useState(false);
+  
+  // ✅ 新增：多选引用状态
+  const [selectedCitations, setSelectedCitations] = useState<Set<string>>(new Set());
+  
+  const [updateCounter, forceUpdate] = useReducer((x: number) => x + 1, 0);
 
   const TEXT_COLORS = [
     { name: '默认', value: '' },
@@ -76,7 +81,6 @@ export default function RichTextEditor({
     { name: '灰色', value: '#f3f4f6' },
   ];
 
-  // 初始化 Tiptap 编辑器
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -111,6 +115,9 @@ export default function RichTextEditor({
       const content = tiptapToInlineContent(json);
       onChange(content);
     },
+    onSelectionUpdate: () => {
+      forceUpdate();
+    },
     editorProps: {
       attributes: {
         class: 'prose prose-sm max-w-none focus:outline-none min-h-[240px] p-4',
@@ -119,7 +126,6 @@ export default function RichTextEditor({
     immediatelyRender: false,
   });
 
-  // 当外部 value 变化时更新编辑器（但避免循环更新）
   useEffect(() => {
     if (editor && !editor.isFocused) {
       const currentContent = tiptapToInlineContent(editor.getJSON());
@@ -132,11 +138,21 @@ export default function RichTextEditor({
     }
   }, [value, editor]);
 
-  // 提取所有可引用的元素
+  const getCurrentTextColor = (): string => {
+    if (!editor) return '';
+    const color = editor.getAttributes('textStyle').color;
+    return color || '';
+  };
+
+  const getCurrentBgColor = (): string => {
+    if (!editor) return '';
+    const highlight = editor.getAttributes('highlight').color;
+    return highlight || '';
+  };
+
   const availableReferences = useMemo(() => {
     const items: ReferenceItem[] = [];
 
-    // 文献引用
     references.forEach(ref => {
       items.push({
         id: ref.id,
@@ -147,7 +163,6 @@ export default function RichTextEditor({
       });
     });
 
-    // 递归提取块元素
     const extractBlocks = (sections: Section[]) => {
       sections.forEach(section => {
         items.push({
@@ -207,12 +222,8 @@ export default function RichTextEditor({
       );
   }, [availableReferences, refPickerType, refSearchQuery]);
 
-  if (!editor) {
-    return null;
-  }
-
-  // 工具栏操作
   const insertLink = () => {
+    if (!editor) return;
     const url = prompt('请输入链接地址：');
     if (url) {
       editor.chain().focus().setLink({ href: url }).run();
@@ -220,6 +231,7 @@ export default function RichTextEditor({
   };
 
   const insertInlineMath = () => {
+    if (!editor) return;
     const latex = prompt('请输入 LaTeX 公式：');
     if (latex) {
       editor.chain().focus().insertContent({
@@ -229,17 +241,59 @@ export default function RichTextEditor({
     }
   };
 
-  const insertReference = (item: ReferenceItem) => {
+  // ✅ 修改：切换文献选择（多选）
+  const toggleCitationSelection = (citationId: string) => {
+    setSelectedCitations(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(citationId)) {
+        newSet.delete(citationId);
+      } else {
+        newSet.add(citationId);
+      }
+      return newSet;
+    });
+  };
+
+  // ✅ 修改：确认插入多个文献引用
+  const insertSelectedCitations = () => {
+    if (!editor || selectedCitations.size === 0) return;
+
+    // 将选中的引用按 number 排序
+    const selectedRefs = Array.from(selectedCitations)
+      .map(id => references.find(r => r.id === id))
+      .filter(ref => ref !== undefined)
+      .sort((a, b) => (a!.number || 0) - (b!.number || 0));
+
+    // 生成 displayText
+    const numbers = selectedRefs.map(ref => ref!.number).filter(num => num !== undefined);
+    const displayText = numbers.length > 0 ? `[${numbers.join(',')}]` : '';
+
+    // 生成 referenceIds
+    const referenceIds = selectedRefs.map(ref => ref!.id);
+
+    console.log('=== 插入多个引用 ===');
+    console.log('选中的引用:', selectedRefs.map(r => ({ id: r!.id, number: r!.number })));
+    console.log('生成的 displayText:', displayText);
+    console.log('referenceIds:', referenceIds);
+
+    editor.chain().focus().insertContent({
+      type: 'citation',
+      attrs: {
+        referenceIds: referenceIds,
+        displayText: displayText,
+      },
+    }).run();
+
+    // 关闭选择器并清空选择
+    setShowRefPicker(false);
+    setSelectedCitations(new Set());
+  };
+
+  // ✅ 修改：单选引用（非文献类型）
+  const insertSingleReference = (item: ReferenceItem) => {
+    if (!editor) return;
+    
     switch (item.type) {
-      case 'citation':
-        editor.chain().focus().insertContent({
-          type: 'citation',
-          attrs: {
-            referenceIds: [item.id],
-            displayText: item.id,
-          },
-        }).run();
-        break;
       case 'figure':
         editor.chain().focus().insertContent({
           type: 'figureRef',
@@ -281,6 +335,7 @@ export default function RichTextEditor({
   };
 
   const insertFootnote = () => {
+    if (!editor) return;
     const content = prompt('输入脚注内容：');
     if (!content) return;
     const num = prompt('脚注序号（可选）：') || '1';
@@ -298,29 +353,53 @@ export default function RichTextEditor({
   const openRefPicker = (type: ReferenceType) => {
     setRefPickerType(type);
     setRefSearchQuery('');
+    setSelectedCitations(new Set()); // ✅ 清空之前的选择
     setShowRefPicker(true);
   };
 
-  const tools = [
-    { icon: Bold, label: '粗体', action: () => editor.chain().focus().toggleBold().run(), active: editor.isActive('bold'), shortcut: 'Ctrl+B' },
-    { icon: Italic, label: '斜体', action: () => editor.chain().focus().toggleItalic().run(), active: editor.isActive('italic'), shortcut: 'Ctrl+I' },
-    { icon: UnderlineIcon, label: '下划线', action: () => editor.chain().focus().toggleUnderline().run(), active: editor.isActive('underline'), shortcut: 'Ctrl+U' },
-    { icon: Strikethrough, label: '删除线', action: () => editor.chain().focus().toggleStrike().run(), active: editor.isActive('strike') },
-    { icon: Code, label: '行内代码', action: () => editor.chain().focus().toggleCode().run(), active: editor.isActive('code') },
-    { type: 'divider' },
-    { icon: Palette, label: '文字颜色', action: () => setShowColorPicker(!showColorPicker) },
-    { icon: Highlighter, label: '背景颜色', action: () => setShowBgPicker(!showBgPicker) },
-    { type: 'divider' },
-    { icon: LinkIcon, label: '链接', action: insertLink, active: editor.isActive('link') },
-    { icon: Calculator, label: '行内公式', action: insertInlineMath },
-    { type: 'divider' },
-    { icon: FileText, label: '文献引用', action: () => openRefPicker('citation') },
-    { icon: Image, label: '图片引用', action: () => openRefPicker('figure') },
-    { icon: Table, label: '表格引用', action: () => openRefPicker('table') },
-    { icon: Sigma, label: '公式引用', action: () => openRefPicker('equation') },
-    { icon: Hash, label: '章节引用', action: () => openRefPicker('section') },
-    { icon: StickyNote, label: '脚注', action: insertFootnote },
-  ];
+  const tools = useMemo(() => {
+    if (!editor) return [];
+    
+    const currentTextColor = getCurrentTextColor();
+    const currentBgColor = getCurrentBgColor();
+    
+    return [
+      { icon: Bold, label: '粗体', action: () => editor.chain().focus().toggleBold().run(), active: editor.isActive('bold'), shortcut: 'Ctrl+B' },
+      { icon: Italic, label: '斜体', action: () => editor.chain().focus().toggleItalic().run(), active: editor.isActive('italic'), shortcut: 'Ctrl+I' },
+      { icon: UnderlineIcon, label: '下划线', action: () => editor.chain().focus().toggleUnderline().run(), active: editor.isActive('underline'), shortcut: 'Ctrl+U' },
+      { icon: Strikethrough, label: '删除线', action: () => editor.chain().focus().toggleStrike().run(), active: editor.isActive('strike') },
+      { icon: Code, label: '行内代码', action: () => editor.chain().focus().toggleCode().run(), active: editor.isActive('code') },
+      { type: 'divider' },
+      { 
+        icon: Palette, 
+        label: '文字颜色', 
+        action: () => setShowColorPicker(!showColorPicker),
+        active: currentTextColor !== '',
+        currentColor: currentTextColor
+      },
+      { 
+        icon: Highlighter, 
+        label: '背景颜色', 
+        action: () => setShowBgPicker(!showBgPicker),
+        active: currentBgColor !== '',
+        currentColor: currentBgColor
+      },
+      { type: 'divider' },
+      { icon: LinkIcon, label: '链接', action: insertLink, active: editor.isActive('link') },
+      { icon: Calculator, label: '行内公式', action: insertInlineMath },
+      { type: 'divider' },
+      { icon: FileText, label: '文献引用', action: () => openRefPicker('citation') },
+      { icon: Image, label: '图片引用', action: () => openRefPicker('figure') },
+      { icon: Table, label: '表格引用', action: () => openRefPicker('table') },
+      { icon: Sigma, label: '公式引用', action: () => openRefPicker('equation') },
+      { icon: Hash, label: '章节引用', action: () => openRefPicker('section') },
+      { icon: StickyNote, label: '脚注', action: insertFootnote },
+    ];
+  }, [editor, showColorPicker, showBgPicker, updateCounter]);
+
+  if (!editor) {
+    return null;
+  }
 
   return (
     <div className="space-y-2">
@@ -331,7 +410,7 @@ export default function RichTextEditor({
       )}
 
       {/* 工具栏 */}
-      <div className="flex items-center gap-1 p-2 bg-white border border-gray-300 rounded-t-lg flex-wrap relative shadow-sm sticky top-0 z-10">
+      <div className="flex items-center gap-1 p-2 bg-white border border-gray-300 rounded-t-lg flex-wrap relative shadow-sm top-0 z-10">
         {tools.map((tool, i) =>
           tool.type === 'divider' ? (
             <div key={i} className="w-px h-6 bg-gray-300 mx-1" />
@@ -340,12 +419,18 @@ export default function RichTextEditor({
               <button
                 type="button"
                 onClick={tool.action}
-                className={`p-1.5 hover:bg-gray-100 rounded transition-colors ${
+                className={`p-1.5 hover:bg-gray-100 rounded transition-colors relative ${
                   tool.active ? 'bg-blue-100 text-blue-600' : 'text-gray-700'
                 }`}
                 title={`${tool.label}${tool.shortcut ? ` (${tool.shortcut})` : ''}`}
               >
                 {tool.icon && <tool.icon className="w-4 h-4" />}
+                {tool.currentColor && (
+                  <span 
+                    className="absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white"
+                    style={{ backgroundColor: tool.currentColor }}
+                  />
+                )}
               </button>
 
               {/* 文字颜色选择器 */}
@@ -365,7 +450,9 @@ export default function RichTextEditor({
                           }
                           setShowColorPicker(false);
                         }}
-                        className="h-9 rounded-md border-2 border-gray-300 hover:ring-2 hover:ring-blue-400 transition-all flex items-center justify-center text-sm font-semibold shadow-sm"
+                        className={`h-9 rounded-md border-2 hover:ring-2 hover:ring-blue-400 transition-all flex items-center justify-center text-sm font-semibold shadow-sm ${
+                          getCurrentTextColor() === color.value ? 'border-blue-500 ring-2 ring-blue-400' : 'border-gray-300'
+                        }`}
                         style={{
                           backgroundColor: color.value || '#fff',
                           color: color.value ? '#fff' : '#374151'
@@ -396,7 +483,9 @@ export default function RichTextEditor({
                           }
                           setShowBgPicker(false);
                         }}
-                        className="h-9 rounded-md border-2 border-gray-300 hover:ring-2 hover:ring-blue-400 transition-all flex items-center justify-center text-sm font-semibold shadow-sm"
+                        className={`h-9 rounded-md border-2 hover:ring-2 hover:ring-blue-400 transition-all flex items-center justify-center text-sm font-semibold shadow-sm ${
+                          getCurrentBgColor() === color.value ? 'border-blue-500 ring-2 ring-blue-400' : 'border-gray-300'
+                        }`}
                         style={{
                           backgroundColor: color.value || '#fff',
                           color: '#374151'
@@ -424,12 +513,20 @@ export default function RichTextEditor({
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowRefPicker(false)}>
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="p-5 border-b flex items-center justify-between bg-gradient-to-r from-blue-50 to-purple-50">
-              <h3 className="text-xl font-bold text-gray-800">
-                选择{refPickerType === 'citation' ? '文献' :
-                  refPickerType === 'figure' ? '图片' :
-                    refPickerType === 'table' ? '表格' :
-                      refPickerType === 'equation' ? '公式' : '章节'}
-              </h3>
+              <div>
+                <h3 className="text-xl font-bold text-gray-800">
+                  选择{refPickerType === 'citation' ? '文献' :
+                    refPickerType === 'figure' ? '图片' :
+                      refPickerType === 'table' ? '表格' :
+                        refPickerType === 'equation' ? '公式' : '章节'}
+                </h3>
+                {/* ✅ 显示已选数量 */}
+                {refPickerType === 'citation' && selectedCitations.size > 0 && (
+                  <p className="text-sm text-blue-600 mt-1">
+                    已选择 {selectedCitations.size} 篇文献
+                  </p>
+                )}
+              </div>
               <button onClick={() => setShowRefPicker(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
                 <X className="w-6 h-6" />
               </button>
@@ -457,22 +554,93 @@ export default function RichTextEditor({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {filteredReferences.map(item => (
-                    <button
-                      key={item.id}
-                      onClick={() => insertReference(item)}
-                      className="w-full text-left p-4 border-2 border-gray-200 rounded-xl hover:bg-blue-50 hover:border-blue-400 transition-all shadow-sm hover:shadow-md"
-                    >
-                      <div className="font-semibold text-gray-900 text-base mb-1">{item.displayText}</div>
-                      {item.data?.title && (
-                        <div className="text-sm text-gray-600 mt-1 italic">"{item.data.title}"</div>
-                      )}
-                      <div className="text-xs text-gray-500 mt-2 font-mono">ID: {item.id}</div>
-                    </button>
-                  ))}
+                  {filteredReferences.map(item => {
+                    // ✅ 文献引用使用复选框
+                    if (item.type === 'citation') {
+                      const isSelected = selectedCitations.has(item.id);
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => toggleCitationSelection(item.id)}
+                          className={`w-full text-left p-4 border-2 rounded-xl transition-all shadow-sm hover:shadow-md flex items-start gap-3 ${
+                            isSelected 
+                              ? 'border-blue-500 bg-blue-50' 
+                              : 'border-gray-200 hover:bg-blue-50 hover:border-blue-400'
+                          }`}
+                        >
+                          {/* ✅ 复选框 */}
+                          <div className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center mt-0.5 transition-all ${
+                            isSelected 
+                              ? 'bg-blue-500 border-blue-500' 
+                              : 'border-gray-300 bg-white'
+                          }`}>
+                            {isSelected && <Check className="w-3 h-3 text-white" />}
+                          </div>
+                          
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-gray-900 text-base mb-1">{item.displayText}</div>
+                            {item.data?.title && (
+                              <div className="text-sm text-gray-600 mt-1 italic truncate">"{item.data.title}"</div>
+                            )}
+                            <div className="text-xs text-gray-500 mt-2 font-mono">
+                              ID: {item.id} {item.data?.number && `| Number: ${item.data.number}`}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    }
+                    
+                    // ✅ 其他类型保持单选
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => insertSingleReference(item)}
+                        className="w-full text-left p-4 border-2 border-gray-200 rounded-xl hover:bg-blue-50 hover:border-blue-400 transition-all shadow-sm hover:shadow-md"
+                      >
+                        <div className="font-semibold text-gray-900 text-base mb-1">{item.displayText}</div>
+                        {item.data?.title && (
+                          <div className="text-sm text-gray-600 mt-1 italic">"{item.data.title}"</div>
+                        )}
+                        <div className="text-xs text-gray-500 mt-2 font-mono">ID: {item.id}</div>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
+
+            {/* ✅ 底部操作栏（仅文献引用显示） */}
+            {refPickerType === 'citation' && (
+              <div className="p-4 border-t bg-gray-50 flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  {selectedCitations.size > 0 ? (
+                    <span>已选择 <span className="font-bold text-blue-600">{selectedCitations.size}</span> 篇文献</span>
+                  ) : (
+                    <span>请选择要引用的文献</span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSelectedCitations(new Set())}
+                    className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                    disabled={selectedCitations.size === 0}
+                  >
+                    清空选择
+                  </button>
+                  <button
+                    onClick={insertSelectedCitations}
+                    disabled={selectedCitations.size === 0}
+                    className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${
+                      selectedCitations.size > 0
+                        ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    插入引用
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

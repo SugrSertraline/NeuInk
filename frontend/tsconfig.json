@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
-    "target": "ES2020",                // 推荐升级到 ES2020
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "target": "ES2020", // 推荐升级到 ES2020
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -13,7 +17,7 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "forceConsistentCasingInFileNames": true, 
+    "forceConsistentCasingInFileNames": true,
     "allowArbitraryExtensions": true,
     "plugins": [
       {
@@ -21,17 +25,26 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"],
-      "@/types/*": ["./app/types/*"],
-      "@neuink/shared": ["../shared/types/index.ts"]
+      "@/*": [
+        "./*"
+      ],
+      "@/types/*": [
+        "./app/types/*"
+      ],
+      "@neuink/shared": [
+        "../shared/types/index.ts"
+      ]
     }
   },
   "include": [
-    "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "global.d.ts"
+    "global.d.ts",
+    "next-env.d.ts",
+    "out/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ]
 }

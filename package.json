@@ -11,7 +11,8 @@
     "build:frontend": "cd frontend && npm run build",
     "build:backend": "cd backend && npm run build",
     "build:electron": "cd electron && npm run build",
-    "build": "npm run build:frontend && npm run build:backend && npm run build:electron",
+    "build": "node build-electron.js",
+    "build:app": "node build-electron.js",
     "start": "cd electron && npm start"
   },
   "keywords": ["论文阅读", "桌面应用", "Electron", "Next.js"],

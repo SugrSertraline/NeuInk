@@ -12,8 +12,9 @@ interface InlineRendererProps {
   onCitationClick?: (refIds: string[]) => void;
   searchQuery?: string;
   allSections?: Section[];
-  contentRef?: React.RefObject<HTMLDivElement | null>; // Add this
+  contentRef?: React.RefObject<HTMLDivElement | null>;
 }
+
 // 行内公式组件
 function InlineMath({ math }: { math: string }) {
   const ref = useRef<HTMLSpanElement>(null);
@@ -97,7 +98,7 @@ export default function InlineRenderer({
             if (textNode.style?.code) className += 'px-1.5 py-0.5 bg-gray-100 rounded text-sm font-mono text-red-600 ';
 
             const inlineStyle: React.CSSProperties = {
-              userSelect: 'text' // 🆕 确保文本可选
+              userSelect: 'text'
             };
             if (textNode.style?.color) inlineStyle.color = textNode.style.color;
             if (textNode.style?.backgroundColor) inlineStyle.backgroundColor = textNode.style.backgroundColor;
@@ -130,9 +131,39 @@ export default function InlineRenderer({
           case 'citation': {
             const citationNode = node as any;
             const refIds = citationNode.referenceIds || [];
-            const displayText = citationNode.displayText || refIds.join(',');
+            let displayText = citationNode.displayText || '';
 
-            // 获取引用详情
+            // ✅ 关键修复：智能检测并重新生成 displayText
+            // 如果 displayText 为空、包含 "ref-"、或者不是纯数字格式，则重新生成
+            const needsRegeneration = !displayText || 
+                                       refIds.some((id: string) => displayText.includes(id)) ||
+                                       !/^\[\d+(,\s*\d+)*\]$/.test(displayText);
+            
+            if (needsRegeneration) {
+              console.log('🔄 InlineRenderer: 重新生成引用显示文本');
+              console.log('   原始 displayText:', displayText);
+              console.log('   referenceIds:', refIds);
+              console.log('   可用 references:', references.map(r => ({ id: r.id, number: r.number })));
+              
+              // 从 references 数组中查找对应的 number
+              const numbers = refIds
+                .map((id: string) => {
+                  const ref = references.find(r => r.id === id);
+                  console.log(`   查找 ${id}:`, ref ? `找到 number=${ref.number}` : '未找到');
+                  return ref?.number;
+                })
+                .filter((num: any) => num !== undefined);
+              
+              if (numbers.length > 0) {
+                displayText = `[${numbers.join(',')}]`;
+                console.log('   ✅ 生成新的 displayText:', displayText);
+              } else {
+                displayText = `[${refIds.join(',')}]`;
+                console.log('   ⚠️ 未找到 number，使用 ID:', displayText);
+              }
+            }
+
+            // 获取引用详情（用于悬停预览）
             const refDetails = refIds
               .map((id: string) => references.find(r => r.id === id || String(r.number) === id))
               .filter(Boolean);
@@ -196,7 +227,6 @@ export default function InlineRenderer({
                 className="text-blue-600 hover:text-blue-800 font-medium cursor-pointer hover:underline"
                 onClick={(e) => {
                   e.preventDefault();
-                  // 修改：使用contentRef进行滚动，而不是window.scrollIntoView
                   const el = document.getElementById(targetId);
                   if (el && contentRef?.current) {
                     const containerRect = contentRef.current.getBoundingClientRect();
@@ -258,6 +288,7 @@ function CitationLink({
   const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
   const supRef = useRef<HTMLElement>(null);
 
+  // ✅ 清理显示文本，移除方括号
   const cleanDisplayText = displayText.replace(/^\[|\]$/g, '');
 
   useEffect(() => {
@@ -283,11 +314,10 @@ function CitationLink({
 
           const referencesElement = document.getElementById('references');
           if (referencesElement && contentRef?.current) {
-            // Calculate the position relative to the scrollable container
             const containerRect = contentRef.current.getBoundingClientRect();
             const elementRect = referencesElement.getBoundingClientRect();
             const scrollTop = contentRef.current.scrollTop;
-            const targetPosition = scrollTop + (elementRect.top - containerRect.top) - 100; // 100px offset from top
+            const targetPosition = scrollTop + (elementRect.top - containerRect.top) - 100;
 
             contentRef.current.scrollTo({
               top: targetPosition,

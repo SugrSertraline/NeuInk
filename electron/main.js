@@ -1,7 +1,72 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const { spawn } = require('child_process');
 
 let mainWindow;
+let apiProxyProcess = null;
+let backendProcess = null;
+
+// 启动API代理服务器
+function startApiProxyServer() {
+  const isDev = process.env.NODE_ENV === 'development';
+  
+  console.log('启动API代理服务器...');
+  
+  // 在生产环境中，我们需要使用Node.js运行API代理
+  // 在开发环境中，我们假设开发服务器已经运行
+  if (!isDev) {
+    apiProxyProcess = spawn('node', [path.join(__dirname, 'api-proxy.js')], {
+      stdio: 'pipe',
+      env: {
+        ...process.env,
+        NODE_ENV: 'production'
+      }
+    });
+    
+    apiProxyProcess.stdout.on('data', (data) => {
+      console.log(`API代理输出: ${data}`);
+    });
+    
+    apiProxyProcess.stderr.on('data', (data) => {
+      console.error(`API代理错误: ${data}`);
+    });
+    
+    apiProxyProcess.on('close', (code) => {
+      console.log(`API代理进程退出，代码: ${code}`);
+    });
+  }
+}
+
+// 启动后端服务器
+function startBackendServer() {
+  const isDev = process.env.NODE_ENV === 'development';
+  
+  console.log('启动后端服务器...');
+  
+  // 在生产环境中，我们需要启动后端服务器
+  if (!isDev) {
+    const backendPath = path.join(__dirname, '..', 'backend', 'dist', 'index.js');
+    backendProcess = spawn('node', [backendPath], {
+      stdio: 'pipe',
+      env: {
+        ...process.env,
+        NODE_ENV: 'production'
+      }
+    });
+    
+    backendProcess.stdout.on('data', (data) => {
+      console.log(`后端输出: ${data}`);
+    });
+    
+    backendProcess.stderr.on('data', (data) => {
+      console.error(`后端错误: ${data}`);
+    });
+    
+    backendProcess.on('close', (code) => {
+      console.log(`后端进程退出，代码: ${code}`);
+    });
+  }
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -27,7 +92,8 @@ function createWindow() {
   if (isDev) {
     mainWindow.loadURL('http://localhost:3000');
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../../frontend/out/index.html'));
+    // 生产环境加载API代理服务器
+    mainWindow.loadURL('http://localhost:3000');
   }
 
   // 防止文本选择和其他默认行为
@@ -40,7 +106,12 @@ function createWindow() {
         user-select: none !important;
       }
       
-      input, textarea, [contenteditable="true"], .prose, .prose * {
+      /* 扩展可编辑元素的选择范围，包括SimpleMDE编辑器相关元素 */
+      input, textarea, [contenteditable="true"], .prose, .prose *,
+      .CodeMirror, .CodeMirror *, .editor-toolbar, .editor-toolbar *,
+      .EasyMDEContainer, .EasyMDEContainer *, .cm-editor, .cm-editor *,
+      .cm-content, .cm-content *, .cm-line, .cm-line *,
+      .react-simplemde-editor, .react-simplemde-editor * {
         -webkit-user-select: text !important;
         -moz-user-select: text !important;
         -ms-user-select: text !important;
@@ -69,20 +140,35 @@ function createWindow() {
       window.getSelection()?.removeAllRanges();
       
       document.addEventListener('dblclick', function(e) {
-        if (!e.target.matches('input, textarea, [contenteditable="true"], .prose, .prose *')) {
+        // 扩展可编辑元素的检测范围
+        if (!e.target.matches('input, textarea, [contenteditable="true"], .prose, .prose *, ' +
+                           '.CodeMirror, .CodeMirror *, .editor-toolbar, .editor-toolbar *, ' +
+                           '.EasyMDEContainer, .EasyMDEContainer *, .cm-editor, .cm-editor *, ' +
+                           '.cm-content, .cm-content *, .cm-line, .cm-line *, ' +
+                           '.react-simplemde-editor, .react-simplemde-editor *')) {
           e.preventDefault();
           window.getSelection()?.removeAllRanges();
         }
       });
       
       document.addEventListener('selectstart', function(e) {
-        if (!e.target.matches('input, textarea, [contenteditable="true"], .prose, .prose *')) {
+        // 扩展可编辑元素的检测范围
+        if (!e.target.matches('input, textarea, [contenteditable="true"], .prose, .prose *, ' +
+                           '.CodeMirror, .CodeMirror *, .editor-toolbar, .editor-toolbar *, ' +
+                           '.EasyMDEContainer, .EasyMDEContainer *, .cm-editor, .cm-editor *, ' +
+                           '.cm-content, .cm-content *, .cm-line, .cm-line *, ' +
+                           '.react-simplemde-editor, .react-simplemde-editor *')) {
           e.preventDefault();
         }
       });
       
       document.addEventListener('contextmenu', function(e) {
-        if (!e.target.matches('input, textarea, [contenteditable="true"], .prose, .prose *')) {
+        // 扩展可编辑元素的检测范围
+        if (!e.target.matches('input, textarea, [contenteditable="true"], .prose, .prose *, ' +
+                           '.CodeMirror, .CodeMirror *, .editor-toolbar, .editor-toolbar *, ' +
+                           '.EasyMDEContainer, .EasyMDEContainer *, .cm-editor, .cm-editor *, ' +
+                           '.cm-content, .cm-content *, .cm-line, .cm-line *, ' +
+                           '.react-simplemde-editor, .react-simplemde-editor *')) {
           window.getSelection()?.removeAllRanges();
         }
       });
@@ -157,7 +243,13 @@ ipcMain.handle('app:quit', () => {
 });
 
 app.whenReady().then(() => {
-  createWindow();
+  // 先启动后端服务
+  startBackendServer();
+  
+  // 等待一段时间让后端服务启动
+  setTimeout(() => {
+    createWindow();
+  }, 2000);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -167,7 +259,21 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  // 关闭后端进程
+  if (backendProcess) {
+    backendProcess.kill();
+    backendProcess = null;
+  }
+  
   if (process.platform !== 'darwin') {
     app.quit();
+  }
+});
+
+app.on('before-quit', () => {
+  // 应用退出前关闭后端进程
+  if (backendProcess) {
+    backendProcess.kill();
+    backendProcess = null;
   }
 });

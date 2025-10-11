@@ -22,6 +22,10 @@ export const Citation = Node.create({
       },
       displayText: {
         default: '',
+        parseHTML: element => element.getAttribute('data-display-text') || '',
+        renderHTML: attributes => ({
+          'data-display-text': attributes.displayText,
+        }),
       },
     };
   },
@@ -30,12 +34,13 @@ export const Citation = Node.create({
     return [{ tag: 'span[data-type="citation"]' }];
   },
 
-  renderHTML({ HTMLAttributes }) {
-    return ['span', mergeAttributes(HTMLAttributes, { 
+  renderHTML({ node, HTMLAttributes }) {
+    const displayText = node.attrs.displayText || `[${node.attrs.referenceIds.join(',')}]`;    
+    return ['span', mergeAttributes(HTMLAttributes, {
       'data-type': 'citation',
       class: 'inline-block px-1.5 py-0.5 mx-0.5 bg-green-100 text-green-800 rounded-md text-xs font-medium cursor-pointer hover:bg-green-200',
       contenteditable: 'false',
-    }), `[${HTMLAttributes['data-reference-ids']}]`];
+    }), displayText];
   },
 
   addNodeView() {
@@ -46,7 +51,7 @@ export const Citation = Node.create({
 function CitationComponent({ node }: any) {
   return (
     <NodeViewWrapper as="span" className="inline-block px-1.5 py-0.5 mx-0.5 bg-green-100 text-green-800 rounded-md text-xs font-medium cursor-pointer hover:bg-green-200">
-      [{node.attrs.referenceIds.join(',')}]
+      {node.attrs.displayText || `[${node.attrs.referenceIds.join(',')}]`}
     </NodeViewWrapper>
   );
 }
@@ -60,8 +65,20 @@ export const FigureRef = Node.create({
 
   addAttributes() {
     return {
-      figureId: { default: '' },
-      displayText: { default: '' },
+      figureId: { 
+        default: '',
+        parseHTML: element => element.getAttribute('data-figure-id') || '',
+        renderHTML: attributes => ({
+          'data-figure-id': attributes.figureId,
+        }),
+      },
+      displayText: { 
+        default: '',
+        parseHTML: element => element.getAttribute('data-display-text') || '',
+        renderHTML: attributes => ({
+          'data-display-text': attributes.displayText,
+        }),
+      },
     };
   },
 
@@ -69,12 +86,12 @@ export const FigureRef = Node.create({
     return [{ tag: 'span[data-type="figure-ref"]' }];
   },
 
-  renderHTML({ HTMLAttributes }) {
+  renderHTML({ node, HTMLAttributes }) {
     return ['span', mergeAttributes(HTMLAttributes, { 
       'data-type': 'figure-ref',
       class: 'inline-block px-1.5 py-0.5 mx-0.5 bg-purple-100 text-purple-800 rounded-md text-xs font-medium cursor-pointer hover:bg-purple-200',
       contenteditable: 'false',
-    }), HTMLAttributes.displayText];
+    }), node.attrs.displayText || ''];
   },
 
   addNodeView() {
@@ -99,8 +116,20 @@ export const TableRef = Node.create({
 
   addAttributes() {
     return {
-      tableId: { default: '' },
-      displayText: { default: '' },
+      tableId: { 
+        default: '',
+        parseHTML: element => element.getAttribute('data-table-id') || '',
+        renderHTML: attributes => ({
+          'data-table-id': attributes.tableId,
+        }),
+      },
+      displayText: { 
+        default: '',
+        parseHTML: element => element.getAttribute('data-display-text') || '',
+        renderHTML: attributes => ({
+          'data-display-text': attributes.displayText,
+        }),
+      },
     };
   },
 
@@ -108,12 +137,12 @@ export const TableRef = Node.create({
     return [{ tag: 'span[data-type="table-ref"]' }];
   },
 
-  renderHTML({ HTMLAttributes }) {
+  renderHTML({ node, HTMLAttributes }) {
     return ['span', mergeAttributes(HTMLAttributes, { 
       'data-type': 'table-ref',
       class: 'inline-block px-1.5 py-0.5 mx-0.5 bg-orange-100 text-orange-800 rounded-md text-xs font-medium cursor-pointer hover:bg-orange-200',
       contenteditable: 'false',
-    }), HTMLAttributes.displayText];
+    }), node.attrs.displayText || ''];
   },
 
   addNodeView() {
@@ -138,8 +167,20 @@ export const EquationRef = Node.create({
 
   addAttributes() {
     return {
-      equationId: { default: '' },
-      displayText: { default: '' },
+      equationId: { 
+        default: '',
+        parseHTML: element => element.getAttribute('data-equation-id') || '',
+        renderHTML: attributes => ({
+          'data-equation-id': attributes.equationId,
+        }),
+      },
+      displayText: { 
+        default: '',
+        parseHTML: element => element.getAttribute('data-display-text') || '',
+        renderHTML: attributes => ({
+          'data-display-text': attributes.displayText,
+        }),
+      },
     };
   },
 
@@ -147,12 +188,12 @@ export const EquationRef = Node.create({
     return [{ tag: 'span[data-type="equation-ref"]' }];
   },
 
-  renderHTML({ HTMLAttributes }) {
+  renderHTML({ node, HTMLAttributes }) {
     return ['span', mergeAttributes(HTMLAttributes, { 
       'data-type': 'equation-ref',
       class: 'inline-block px-1.5 py-0.5 mx-0.5 bg-indigo-100 text-indigo-800 rounded-md text-xs font-medium cursor-pointer hover:bg-indigo-200',
       contenteditable: 'false',
-    }), HTMLAttributes.displayText];
+    }), node.attrs.displayText || ''];
   },
 
   addNodeView() {
@@ -177,8 +218,20 @@ export const SectionRef = Node.create({
 
   addAttributes() {
     return {
-      sectionId: { default: '' },
-      displayText: { default: '' },
+      sectionId: { 
+        default: '',
+        parseHTML: element => element.getAttribute('data-section-id') || '',
+        renderHTML: attributes => ({
+          'data-section-id': attributes.sectionId,
+        }),
+      },
+      displayText: { 
+        default: '',
+        parseHTML: element => element.getAttribute('data-display-text') || '',
+        renderHTML: attributes => ({
+          'data-display-text': attributes.displayText,
+        }),
+      },
     };
   },
 
@@ -186,12 +239,12 @@ export const SectionRef = Node.create({
     return [{ tag: 'span[data-type="section-ref"]' }];
   },
 
-  renderHTML({ HTMLAttributes }) {
+  renderHTML({ node, HTMLAttributes }) {
     return ['span', mergeAttributes(HTMLAttributes, { 
       'data-type': 'section-ref',
       class: 'inline-block px-1.5 py-0.5 mx-0.5 bg-teal-100 text-teal-800 rounded-md text-xs font-medium cursor-pointer hover:bg-teal-200',
       contenteditable: 'false',
-    }), HTMLAttributes.displayText];
+    }), node.attrs.displayText || ''];
   },
 
   addNodeView() {
@@ -216,9 +269,27 @@ export const Footnote = Node.create({
 
   addAttributes() {
     return {
-      id: { default: '' },
-      content: { default: '' },
-      displayText: { default: '' },
+      id: { 
+        default: '',
+        parseHTML: element => element.getAttribute('data-id') || '',
+        renderHTML: attributes => ({
+          'data-id': attributes.id,
+        }),
+      },
+      content: { 
+        default: '',
+        parseHTML: element => element.getAttribute('data-content') || '',
+        renderHTML: attributes => ({
+          'data-content': attributes.content,
+        }),
+      },
+      displayText: { 
+        default: '',
+        parseHTML: element => element.getAttribute('data-display-text') || '',
+        renderHTML: attributes => ({
+          'data-display-text': attributes.displayText,
+        }),
+      },
     };
   },
 
@@ -226,12 +297,12 @@ export const Footnote = Node.create({
     return [{ tag: 'span[data-type="footnote"]' }];
   },
 
-  renderHTML({ HTMLAttributes }) {
+  renderHTML({ node, HTMLAttributes }) {
     return ['span', mergeAttributes(HTMLAttributes, { 
       'data-type': 'footnote',
       class: 'inline-block px-1 py-0.5 mx-0.5 bg-gray-200 text-gray-800 rounded text-xs font-medium cursor-pointer hover:bg-gray-300',
       contenteditable: 'false',
-    }), `[${HTMLAttributes.displayText}]`];
+    }), `[${node.attrs.displayText || ''}]`];
   },
 
   addNodeView() {
@@ -260,7 +331,13 @@ export const InlineMath = Node.create({
 
   addAttributes() {
     return {
-      latex: { default: '' },
+      latex: { 
+        default: '',
+        parseHTML: element => element.getAttribute('data-latex') || '',
+        renderHTML: attributes => ({
+          'data-latex': attributes.latex,
+        }),
+      },
     };
   },
 
@@ -268,12 +345,12 @@ export const InlineMath = Node.create({
     return [{ tag: 'span[data-type="inline-math"]' }];
   },
 
-  renderHTML({ HTMLAttributes }) {
+  renderHTML({ node, HTMLAttributes }) {
     return ['span', mergeAttributes(HTMLAttributes, { 
       'data-type': 'inline-math',
       class: 'inline-block px-2 py-0.5 mx-0.5 bg-blue-50 text-blue-700 rounded font-mono text-sm border border-blue-200',
       contenteditable: 'false',
-    }), `$${HTMLAttributes.latex}$`];
+    }), `$${node.attrs.latex || ''}$`];
   },
 
   addNodeView() {

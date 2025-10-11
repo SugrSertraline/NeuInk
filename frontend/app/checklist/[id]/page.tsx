@@ -967,3 +967,4 @@ const handleOpenPaperInNewTab = async (paper: PaperMetadata) => {
 function setActiveTab(id: string) {
   throw new Error('Function not implemented.');
 }
+
