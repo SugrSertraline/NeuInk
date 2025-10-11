@@ -1,5 +1,15 @@
 'use client';
-
+import { useState } from 'react'; // 如果已有，忽略
+import TextSelectionToolbar from './TextSelectionToolbar';
+import { 
+  toggleBold, 
+  toggleItalic, 
+  toggleUnderline, 
+  applyTextColor, 
+  applyBackgroundColor,
+  clearAllStyles 
+} from '../utils/inlineContentUtils';
+import type { ParagraphBlock, HeadingBlock } from '../../../types/paper';
 import React, { useEffect, useRef } from 'react';
 import type { BlockContent, Section } from '../../../types/paper';
 import InlineRenderer from './InlineRenderer';
@@ -18,6 +28,7 @@ interface BlockRendererProps {
   searchQuery?: string;
   allSections?: Section[];
   contentRef?: React.RefObject<HTMLDivElement | null>;
+  onBlockUpdate?: (block: BlockContent) => void;
 }
 
 function BlockMath({ math }: { math: string }) {
@@ -52,74 +63,166 @@ export default function BlockRenderer({
   onCitationClick,
   searchQuery = '',
   allSections = [],
-  contentRef 
+  contentRef,
+  onBlockUpdate // 🆕 新增
 }: BlockRendererProps) {
-  const baseClass = `transition-all duration-200 rounded-lg ${
-    isActive ? 'bg-blue-50 ring-2 ring-blue-200 shadow-sm' : ''
-  }`;
+  // 🆕 文本选择工具栏状态
+  const [showToolbar, setShowToolbar] = useState(false);
+  const [toolbarPos, setToolbarPos] = useState({ x: 0, y: 0 });
+  const [selectedText, setSelectedText] = useState('');
 
+  const baseClass = `transition-all duration-200 rounded-lg ${isActive ? 'bg-blue-50 ring-2 ring-blue-200 shadow-sm' : ''
+    }`;
+
+  // 🆕 处理文本选择
+  const handleTextSelection = (e: React.MouseEvent) => {
+    // 只在段落和标题块中启用
+    if (block.type !== 'paragraph' && block.type !== 'heading') return;
+    if (!onBlockUpdate) return;
+
+    // 🆕 延迟执行，确保选择完成
+    setTimeout(() => {
+      const selection = window.getSelection();
+      const text = selection?.toString().trim();
+
+      if (text && text.length > 0) {
+        const range = selection?.getRangeAt(0);
+        const rect = range?.getBoundingClientRect();
+
+        if (rect) {
+          setSelectedText(text);
+          setToolbarPos({
+            x: rect.left + rect.width / 2,
+            y: rect.top + window.scrollY
+          });
+          setShowToolbar(true);
+        }
+      } else {
+        setShowToolbar(false);
+      }
+    }, 10);
+  };
+
+  // 🆕 应用样式
+const applyStyle = (styleType: 'bold' | 'italic' | 'underline' | 'color' | 'bg' | 'clear', value?: string) => {
+  if (!onBlockUpdate || !selectedText) return;
+  
+  const currentBlock = block as ParagraphBlock | HeadingBlock;
+  const currentContent = currentBlock.content?.[lang];
+  
+  if (!currentContent) return;
+  
+  let newContent = currentContent;
+  
+  switch (styleType) {
+    case 'bold':
+      newContent = toggleBold(currentContent, selectedText);
+      break;
+    case 'italic':
+      newContent = toggleItalic(currentContent, selectedText);
+      break;
+    case 'underline':
+      newContent = toggleUnderline(currentContent, selectedText);
+      break;
+    case 'color':
+      if (value !== undefined) {
+        newContent = applyTextColor(currentContent, selectedText, value);
+      }
+      break;
+    case 'bg':
+      if (value !== undefined) {
+        newContent = applyBackgroundColor(currentContent, selectedText, value);
+      }
+      break;
+    case 'clear':
+      newContent = clearAllStyles(currentContent, selectedText);
+      break;
+  }
+  
+  const updatedBlock = {
+    ...currentBlock,
+    content: {
+      ...currentBlock.content,
+      [lang]: newContent
+    }
+  };
+  
+  // 🆕 先更新内容，延迟关闭工具栏和清除选择
+  onBlockUpdate(updatedBlock);
+  
+  // 🆕 延迟500ms让用户看到效果，再关闭工具栏
+  setTimeout(() => {
+    setShowToolbar(false);
+    window.getSelection()?.removeAllRanges();
+  }, 100);
+};
   const renderContent = () => {
     switch (block.type) {
-        case 'heading': {
-            const headingSizes = {
-              1: 'text-3xl',
-              2: 'text-2xl',
-              3: 'text-xl',
-              4: 'text-lg',
-              5: 'text-base',
-              6: 'text-sm'
-            } as const;
-            
-            const commonProps = {
-              className: `${headingSizes[block.level]} font-bold text-gray-900 mb-2`,
-              children: (
-                <>
-                  {block.number && <span className="text-blue-600 mr-2">{block.number}</span>}
-                  <InlineRenderer 
-                    nodes={block.content?.[lang]} 
-                    references={references}
-                    onCitationClick={onCitationClick}
-                    searchQuery={searchQuery}
-                    allSections={allSections}
-                    contentRef={contentRef}
-                  />
-                </>
-              )
-            };
-            switch (block.level) {
-              case 1: return <h1 {...commonProps} />;
-              case 2: return <h2 {...commonProps} />;
-              case 3: return <h3 {...commonProps} />;
-              case 4: return <h4 {...commonProps} />;
-              case 5: return <h5 {...commonProps} />;
-              case 6: return <h6 {...commonProps} />;
-              default: return <h2 {...commonProps} />;
-            }
-          }
-          
-      
-      case 'paragraph': {
-        const alignClass = {
-          left: 'text-left',
-          center: 'text-center',
-          right: 'text-right',
-          justify: 'text-justify'
-        }[block.align || 'left'];
-        
-        return (
-          <p className={`text-gray-700 leading-relaxed ${alignClass}`}>
-            <InlineRenderer 
-              nodes={block.content?.[lang]} 
-              references={references}
-              onCitationClick={onCitationClick}
-              searchQuery={searchQuery}
-              allSections={allSections}
-              contentRef={contentRef} 
-            />
-          </p>
-        );
+      case 'heading': {
+        const headingSizes = {
+          1: 'text-3xl',
+          2: 'text-2xl',
+          3: 'text-xl',
+          4: 'text-lg',
+          5: 'text-base',
+          6: 'text-sm'
+        } as const;
+
+        const commonProps = {
+  className: `${headingSizes[block.level]} font-bold text-gray-900 mb-2`,
+  onMouseUp: handleTextSelection,
+  style: { userSelect: 'text' as const }, // 🆕 明确允许文本选择
+  children: (
+    <>
+      {block.number && <span className="text-blue-600 mr-2">{block.number}</span>}
+      <InlineRenderer 
+        nodes={block.content?.[lang]} 
+        references={references}
+        onCitationClick={onCitationClick}
+        searchQuery={searchQuery}
+        allSections={allSections}
+        contentRef={contentRef}
+      />
+    </>
+  )
+};
+        switch (block.level) {
+          case 1: return <h1 {...commonProps} />;
+          case 2: return <h2 {...commonProps} />;
+          case 3: return <h3 {...commonProps} />;
+          case 4: return <h4 {...commonProps} />;
+          case 5: return <h5 {...commonProps} />;
+          case 6: return <h6 {...commonProps} />;
+          default: return <h2 {...commonProps} />;
+        }
       }
-      
+
+
+      case 'paragraph': {
+  const alignClass = {
+    left: 'text-left',
+    center: 'text-center',
+    right: 'text-right',
+    justify: 'text-justify'
+  }[block.align || 'left'];
+  
+  return (
+    <p 
+      className={`text-gray-700 leading-relaxed ${alignClass}`}
+      onMouseUp={handleTextSelection}
+      style={{ userSelect: 'text' }} // 🆕 明确允许文本选择
+    >
+      <InlineRenderer 
+        nodes={block.content?.[lang]} 
+        references={references}
+        onCitationClick={onCitationClick}
+        searchQuery={searchQuery}
+        allSections={allSections}
+        contentRef={contentRef} 
+      />
+    </p>
+  );
+}
       case 'math': {
         return (
           <div className="my-4">
@@ -134,17 +237,17 @@ export default function BlockRenderer({
           </div>
         );
       }
-      
+
       case 'figure': {
         return (
           <figure className="my-6">
             {/* ✅ 添加条件判断 */}
             {block.src ? (
-              <img 
+              <img
                 src={toAbsoluteUrl(block.src)}
-                alt={block.alt || ''} 
+                alt={block.alt || ''}
                 className="max-w-2xl mx-auto rounded-lg shadow-md border border-gray-200"
-                style={{ 
+                style={{
                   width: block.width || 'auto',
                   height: block.height || 'auto'
                 }}
@@ -157,25 +260,25 @@ export default function BlockRenderer({
                 <p className="text-gray-400 text-sm">图片未上传</p>
               </div>
             )}
-            
+
             {/* Caption 保持不变 */}
             <figcaption className="text-sm text-gray-600 mt-3 text-center px-4">
               {block.number && (
                 <span className="font-semibold text-gray-800">Figure {block.number}. </span>
               )}
-              <InlineRenderer 
-                nodes={block.caption?.[lang]} 
+              <InlineRenderer
+                nodes={block.caption?.[lang]}
                 references={references}
                 onCitationClick={onCitationClick}
                 allSections={allSections}
                 contentRef={contentRef}
               />
             </figcaption>
-            
+
             {block.description?.[lang] && (
               <div className="text-xs text-gray-500 mt-2 text-center px-4">
-                <InlineRenderer 
-                  nodes={block.description[lang]} 
+                <InlineRenderer
+                  nodes={block.description[lang]}
                   allSections={allSections}
                   contentRef={contentRef}
                 />
@@ -184,8 +287,8 @@ export default function BlockRenderer({
           </figure>
         );
       }
-      
-      
+
+
       case 'table': {
         return (
           <div className="my-6 overflow-x-auto">
@@ -194,8 +297,8 @@ export default function BlockRenderer({
                 {block.number && (
                   <span className="font-semibold text-gray-800">Table {block.number}. </span>
                 )}
-                <InlineRenderer 
-                  nodes={block.caption[lang]} 
+                <InlineRenderer
+                  nodes={block.caption[lang]}
                   allSections={allSections}
                   contentRef={contentRef}
                 />
@@ -206,8 +309,8 @@ export default function BlockRenderer({
                 <thead className="bg-gray-100">
                   <tr>
                     {block.headers.map((h, i) => (
-                      <th 
-                        key={i} 
+                      <th
+                        key={i}
                         className="border border-gray-300 px-3 py-2 font-semibold text-gray-900 text-sm"
                         style={{ textAlign: block.align?.[i] || 'left' }}
                       >
@@ -221,8 +324,8 @@ export default function BlockRenderer({
                 {block.rows.map((row, r) => (
                   <tr key={r} className="hover:bg-gray-50 transition-colors">
                     {row.map((cell, c) => (
-                      <td 
-                        key={c} 
+                      <td
+                        key={c}
                         className="border border-gray-300 px-3 py-2 text-gray-700 text-sm"
                         style={{ textAlign: block.align?.[c] || 'left' }}
                       >
@@ -235,8 +338,8 @@ export default function BlockRenderer({
             </table>
             {block.description?.[lang] && (
               <div className="text-xs text-gray-500 mt-2 text-center">
-                <InlineRenderer 
-                  nodes={block.description[lang]} 
+                <InlineRenderer
+                  nodes={block.description[lang]}
                   allSections={allSections}
                   contentRef={contentRef}
                 />
@@ -245,14 +348,14 @@ export default function BlockRenderer({
           </div>
         );
       }
-      
+
       case 'code': {
         return (
           <div className="my-4">
             {block.caption?.[lang] && (
               <div className="text-xs text-gray-500 mb-2">
-                <InlineRenderer 
-                  nodes={block.caption[lang]} 
+                <InlineRenderer
+                  nodes={block.caption[lang]}
                   allSections={allSections}
                   contentRef={contentRef}
                 />
@@ -271,50 +374,50 @@ export default function BlockRenderer({
           </div>
         );
       }
-      
+
       case 'ordered-list': {
         return (
           <ol start={block.start ?? 1} className="list-decimal pl-6 my-3 space-y-1.5">
             {block.items.map((item, i) => (
               <li key={i} className="text-gray-700 leading-relaxed">
-                <InlineRenderer 
-                  nodes={item.content?.[lang]} 
+                <InlineRenderer
+                  nodes={item.content?.[lang]}
                   references={references}
                   onCitationClick={onCitationClick}
                   searchQuery={searchQuery}
                   allSections={allSections}
-                  contentRef={contentRef} 
+                  contentRef={contentRef}
                 />
               </li>
             ))}
           </ol>
         );
       }
-      
+
       case 'unordered-list': {
         return (
           <ul className="list-disc pl-6 my-3 space-y-1.5">
             {block.items.map((item, i) => (
               <li key={i} className="text-gray-700 leading-relaxed">
-                <InlineRenderer 
-                  nodes={item.content?.[lang]} 
+                <InlineRenderer
+                  nodes={item.content?.[lang]}
                   references={references}
                   onCitationClick={onCitationClick}
                   searchQuery={searchQuery}
                   allSections={allSections}
-                  contentRef={contentRef} 
+                  contentRef={contentRef}
                 />
               </li>
             ))}
           </ul>
         );
       }
-      
+
       case 'quote': {
         return (
           <blockquote className="border-l-4 border-blue-500 pl-4 py-2 italic my-4 text-gray-600 bg-blue-50 rounded-r-lg">
-            <InlineRenderer 
-              nodes={block.content?.[lang]} 
+            <InlineRenderer
+              nodes={block.content?.[lang]}
               references={references}
               onCitationClick={onCitationClick}
               allSections={allSections}
@@ -328,24 +431,38 @@ export default function BlockRenderer({
           </blockquote>
         );
       }
-      
+
       case 'divider': {
         return <hr className="my-6 border-t-2 border-gray-300" />;
       }
-      
+
       default:
         return null;
     }
   };
 
   return (
-    <div
-      id={block.id}
-      className={`${baseClass} p-2 mb-3`}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-    >
-      {renderContent()}
-    </div>
+    <>
+      <div
+        id={block.id}
+        className={`${baseClass} p-2 mb-3`}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+      >
+        {renderContent()}
+      </div>
+{showToolbar && (
+  <TextSelectionToolbar
+    onBold={() => applyStyle('bold')}
+    onItalic={() => applyStyle('italic')}
+    onUnderline={() => applyStyle('underline')}
+    onColor={(color) => applyStyle('color', color)}
+    onBackgroundColor={(bg) => applyStyle('bg', bg)}
+    onClearStyles={() => applyStyle('clear')}
+    position={toolbarPos}
+    onClose={() => setShowToolbar(false)}
+  />
+)}
+    </>
   );
 }

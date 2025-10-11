@@ -6,15 +6,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
   version: process.versions.electron,
   
+  // 窗口控制
+  window: {
+    minimize: () => ipcRenderer.invoke('window:minimize'),
+    maximize: () => ipcRenderer.invoke('window:maximize'),
+    close: () => ipcRenderer.invoke('window:close'),
+    isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
+    setTitle: (title) => ipcRenderer.invoke('window:setTitle', title),
+  },
+  
   // 应用控制
   app: {
     getVersion: () => ipcRenderer.invoke('app:getVersion'),
     quit: () => ipcRenderer.invoke('app:quit'),
-    minimize: () => ipcRenderer.invoke('window:minimize'),
-    maximize: () => ipcRenderer.invoke('window:maximize'),
-    unmaximize: () => ipcRenderer.invoke('window:unmaximize'),
-    close: () => ipcRenderer.invoke('window:close'),
-    setTitle: (title) => ipcRenderer.invoke('window:setTitle', title),
   },
   
   // 文件系统操作
@@ -79,6 +83,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'app-update-downloaded',
       'window-focus',
       'window-blur',
+      'window-maximize',
+      'window-unmaximize',
       'menu-click'
     ];
     if (validChannels.includes(channel)) {
@@ -94,7 +100,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
 // 开发环境下的额外功能
 if (process.env.NODE_ENV === 'development') {
-  // 暴露开发工具
   contextBridge.exposeInMainWorld('devTools', {
     log: (...args) => console.log('[Renderer]', ...args),
     error: (...args) => console.error('[Renderer]', ...args),
@@ -102,7 +107,6 @@ if (process.env.NODE_ENV === 'development') {
     inspect: (element) => {
       if (element) {
         console.log('Inspecting element:', element);
-        // 可以添加更多检查逻辑
       }
     }
   });

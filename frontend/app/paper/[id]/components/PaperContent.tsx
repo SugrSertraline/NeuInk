@@ -17,6 +17,7 @@ interface PaperContentProps {
   blockNotes?: Array<{ id: string; blockId: string; content: string }>;
   setSearchResults?: (results: string[]) => void;
   setCurrentSearchIndex?: (index: number) => void;
+  onBlockUpdate?: (updatedBlock: BlockContent, sectionId: string) => void; // 🆕 新增
 }
 
 export default function PaperContent({
@@ -32,11 +33,12 @@ export default function PaperContent({
   contentRef,
   blockNotes = [],
   setSearchResults,
-  setCurrentSearchIndex
+  setCurrentSearchIndex,
+  onBlockUpdate
 }: PaperContentProps) {
-  
+
   const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null);
-  
+
   const hasNotes = (blockId: string): boolean => {
     return blockNotes.some(note => note.blockId === blockId);
   };
@@ -47,7 +49,7 @@ export default function PaperContent({
       setCurrentSearchIndex?.(0);
       return;
     }
-    
+
     const results: string[] = [];
     const collectResults = (secs: Section[]) => {
       secs.forEach(section => {
@@ -57,21 +59,21 @@ export default function PaperContent({
             results.push(block.id);
           }
         });
-        
+
         if (section.subsections) {
           collectResults(section.subsections);
         }
       });
     };
-    
+
     collectResults(sections);
     setSearchResults?.(results);
     setCurrentSearchIndex?.(0);
   }, [searchQuery, sections, setSearchResults, setCurrentSearchIndex]);
-  
+
   const handleCitationClick = (refIds: string[]) => {
     setHighlightedRefs(refIds);
-    
+
     if (refIds.length > 0) {
       const refElement = document.getElementById(`ref-${refIds[0]}`);
       if (refElement && contentRef.current) {
@@ -79,14 +81,14 @@ export default function PaperContent({
         const elementTop = refElement.offsetTop;
         const containerTop = container.offsetTop;
         const scrollPosition = elementTop - containerTop - 100;
-        
+
         container.scrollTo({
           top: scrollPosition,
           behavior: 'smooth'
         });
       }
     }
-    
+
     setTimeout(() => setHighlightedRefs([]), 3000);
   };
 
@@ -104,18 +106,18 @@ export default function PaperContent({
 
   // 🆕 递归渲染章节（双语模式）
   const renderSectionRecursive = (section: Section, level: number = 0) => {
-    const headingClass = level === 0 
+    const headingClass = level === 0
       ? 'text-2xl font-bold border-b-2 border-gray-300 pb-1.5'
       : level === 1
-      ? 'text-xl font-semibold'
-      : 'text-lg font-medium';
-    
+        ? 'text-xl font-semibold'
+        : 'text-lg font-medium';
+
     const marginLeft = level > 0 ? `${level * 1.5}rem` : '0';
 
     return (
-      <section 
-        id={section.id} 
-        key={section.id} 
+      <section
+        id={section.id}
+        key={section.id}
         className="mb-6"
         style={{ marginLeft }}
       >
@@ -132,31 +134,57 @@ export default function PaperContent({
             </h2>
           )}
         </div>
-        
+
         {/* 渲染当前章节的块 */}
         {section.content.map((block) => {
           const isActive = activeBlockId === block.id;
           const isHovered = hoveredBlockId === block.id;
-          
+
           if (needsBilingualLayout(block)) {
             const hasEn = hasContent(block, 'en');
             const hasZh = hasContent(block, 'zh');
-            
+
             return (
-              <div 
+              <div
                 data-sync-id={block.id}
                 key={block.id}
                 id={block.id}
-                className={`mb-3 rounded border overflow-hidden transition-all cursor-pointer relative ${
-                  isActive 
-                    ? 'bg-blue-50 border-blue-400 shadow-md ring-2 ring-blue-300' 
+                className={`mb-3 rounded border overflow-hidden transition-all relative ${isActive
+                    ? 'bg-blue-50 border-blue-400 shadow-md ring-2 ring-blue-300'
                     : isHovered
-                    ? 'border-gray-400 shadow-sm'
-                    : 'bg-white border-gray-200'
-                }`}
+                      ? 'border-gray-400 shadow-sm'
+                      : 'bg-white border-gray-200'
+                  }`}
                 onMouseEnter={() => setHoveredBlockId(block.id)}
                 onMouseLeave={() => setHoveredBlockId(null)}
-                onClick={() => onBlockClick(block.id)}
+                onMouseDown={(e) => {
+                  // 🆕 记录鼠标按下时的位置
+                  (e.currentTarget as any)._mouseDownPos = { x: e.clientX, y: e.clientY };
+                }}
+                onMouseUp={(e) => {
+                  // 🆕 智能判断是点击还是拖动选择
+                  const mouseDownPos = (e.currentTarget as any)._mouseDownPos;
+                  if (!mouseDownPos) return;
+
+                  const distance = Math.sqrt(
+                    Math.pow(e.clientX - mouseDownPos.x, 2) +
+                    Math.pow(e.clientY - mouseDownPos.y, 2)
+                  );
+
+                  // 移动距离小于5px且没有选中文字，才认为是点击
+                  const selection = window.getSelection();
+                  const hasSelection = selection && selection.toString().trim().length > 0;
+
+                  if (distance < 5 && !hasSelection) {
+                    onBlockClick(block.id);
+                  }
+
+                  delete (e.currentTarget as any)._mouseDownPos;
+                }}
+                style={{
+                  cursor: isActive ? 'text' : 'pointer',
+                  userSelect: isActive ? 'text' : 'auto' // 🆕 允许选择文本
+                }}
               >
                 {hasNotes(block.id) && (
                   <div className="absolute -top-1 -right-1 z-10">
@@ -169,32 +197,34 @@ export default function PaperContent({
                       block={block}
                       lang="en"
                       isActive={false}
-                      onMouseEnter={() => {}}
-                      onMouseLeave={() => {}}
+                      onMouseEnter={() => { }}
+                      onMouseLeave={() => { }}
                       references={references}
                       onCitationClick={handleCitationClick}
                       searchQuery={searchQuery}
                       allSections={sections}
-                      contentRef={contentRef} 
+                      contentRef={contentRef}
+                      onBlockUpdate={(updatedBlock) => onBlockUpdate?.(updatedBlock, section.id)} // 🆕 新增
                     />
                   </div>
                 )}
-                
+
                 <div className="border-t border-gray-200 mx-3"></div>
-                
+
                 {hasZh ? (
                   <div className="px-3 pt-1.5 pb-2 bg-gray-50/50">
                     <BlockRenderer
                       block={block}
                       lang="zh"
                       isActive={false}
-                      onMouseEnter={() => {}}
-                      onMouseLeave={() => {}}
+                      onMouseEnter={() => { }}
+                      onMouseLeave={() => { }}
                       references={references}
                       onCitationClick={handleCitationClick}
                       searchQuery={searchQuery}
                       allSections={sections}
-                      contentRef={contentRef} 
+                      contentRef={contentRef}
+                      onBlockUpdate={(updatedBlock) => onBlockUpdate?.(updatedBlock, section.id)}
                     />
                   </div>
                 ) : (
@@ -206,23 +236,46 @@ export default function PaperContent({
                 )}
               </div>
             );
-          } 
-          
+          }
+
           return (
-            <div 
+            <div
               data-sync-id={block.id}
               key={block.id}
               id={block.id}
-              className={`mb-3 cursor-pointer rounded relative ${
-                isActive 
-                  ? 'ring-2 ring-blue-400 bg-blue-50' 
+              className={`mb-3 rounded relative ${isActive
+                  ? 'ring-2 ring-blue-400 bg-blue-50'
                   : isHovered
-                  ? 'ring-1 ring-gray-300'
-                  : ''
-              }`}
+                    ? 'ring-1 ring-gray-300'
+                    : ''
+                }`}
               onMouseEnter={() => setHoveredBlockId(block.id)}
               onMouseLeave={() => setHoveredBlockId(null)}
-              onClick={() => onBlockClick(block.id)}
+              onMouseDown={(e) => {
+                (e.currentTarget as any)._mouseDownPos = { x: e.clientX, y: e.clientY };
+              }}
+              onMouseUp={(e) => {
+                const mouseDownPos = (e.currentTarget as any)._mouseDownPos;
+                if (!mouseDownPos) return;
+
+                const distance = Math.sqrt(
+                  Math.pow(e.clientX - mouseDownPos.x, 2) +
+                  Math.pow(e.clientY - mouseDownPos.y, 2)
+                );
+
+                const selection = window.getSelection();
+                const hasSelection = selection && selection.toString().trim().length > 0;
+
+                if (distance < 5 && !hasSelection) {
+                  onBlockClick(block.id);
+                }
+
+                delete (e.currentTarget as any)._mouseDownPos;
+              }}
+              style={{
+                cursor: isActive ? 'text' : 'pointer',
+                userSelect: isActive ? 'text' : 'auto'
+              }}
             >
               {hasNotes(block.id) && (
                 <div className="absolute -top-1 -right-1 z-10">
@@ -233,20 +286,21 @@ export default function PaperContent({
                 block={block}
                 lang="en"
                 isActive={false}
-                onMouseEnter={() => {}}
-                onMouseLeave={() => {}}
+                onMouseEnter={() => { }}
+                onMouseLeave={() => { }}
                 references={references}
                 onCitationClick={handleCitationClick}
                 searchQuery={searchQuery}
                 allSections={sections}
-                contentRef={contentRef} 
+                contentRef={contentRef}
+                onBlockUpdate={(updatedBlock) => onBlockUpdate?.(updatedBlock, section.id)}
               />
             </div>
           );
         })}
-        
+
         {/* 🔥 递归渲染子章节 */}
-        {section.subsections?.map((subsection) => 
+        {section.subsections?.map((subsection) =>
           renderSectionRecursive(subsection, level + 1)
         )}
       </section>
@@ -255,19 +309,19 @@ export default function PaperContent({
 
   // 🆕 递归渲染章节（英文模式）
   const renderSectionRecursiveEn = (section: Section, level: number = 0) => {
-    const headingClass = level === 0 
+    const headingClass = level === 0
       ? 'text-2xl font-bold border-b-2 border-gray-300 pb-1.5'
       : level === 1
-      ? 'text-xl font-semibold'
-      : 'text-lg font-medium';
-    
+        ? 'text-xl font-semibold'
+        : 'text-lg font-medium';
+
     const marginLeft = level > 0 ? `${level * 1.5}rem` : '0';
 
     return (
-      <section 
+      <section
         data-sync-id={section.id}
-        id={section.id} 
-        key={section.id} 
+        id={section.id}
+        key={section.id}
         className="mb-6"
         style={{ marginLeft }}
       >
@@ -279,27 +333,51 @@ export default function PaperContent({
             {section.title.en}
           </h2>
         )}
-        
+
         {section.content.map((block) => {
           const isActive = activeBlockId === block.id;
           const isHovered = hoveredBlockId === block.id;
-          
+
           return (
             <div
-              data-sync-id={block.id}
-              key={block.id}
-              id={block.id}
-              className={`mb-3 cursor-pointer rounded relative ${
-                isActive 
-                  ? 'ring-2 ring-blue-400 bg-blue-50' 
-                  : isHovered
-                  ? 'ring-1 ring-gray-300'
-                  : ''
-              }`}
-              onMouseEnter={() => setHoveredBlockId(block.id)}
-              onMouseLeave={() => setHoveredBlockId(null)}
-              onClick={() => onBlockClick(block.id)}
-            >
+  data-sync-id={block.id}
+  key={block.id}
+  id={block.id}
+  className={`mb-3 rounded relative ${
+    isActive 
+      ? 'ring-2 ring-blue-400 bg-blue-50' 
+      : isHovered
+      ? 'ring-1 ring-gray-300'
+      : ''
+  }`}
+  onMouseEnter={() => setHoveredBlockId(block.id)}
+  onMouseLeave={() => setHoveredBlockId(null)}
+  onMouseDown={(e) => {
+    (e.currentTarget as any)._mouseDownPos = { x: e.clientX, y: e.clientY };
+  }}
+  onMouseUp={(e) => {
+    const mouseDownPos = (e.currentTarget as any)._mouseDownPos;
+    if (!mouseDownPos) return;
+    
+    const distance = Math.sqrt(
+      Math.pow(e.clientX - mouseDownPos.x, 2) + 
+      Math.pow(e.clientY - mouseDownPos.y, 2)
+    );
+    
+    const selection = window.getSelection();
+    const hasSelection = selection && selection.toString().trim().length > 0;
+    
+    if (distance < 5 && !hasSelection) {
+      onBlockClick(block.id);
+    }
+    
+    delete (e.currentTarget as any)._mouseDownPos;
+  }}
+  style={{ 
+    cursor: isActive ? 'text' : 'pointer',
+    userSelect: isActive ? 'text' : 'auto'
+  }}
+>
               {hasNotes(block.id) && (
                 <div className="absolute -top-1 -right-1 z-10">
                   <div className="w-3 h-3 bg-blue-600 rounded-full border-2 border-white shadow-sm"></div>
@@ -309,20 +387,21 @@ export default function PaperContent({
                 block={block}
                 lang="en"
                 isActive={false}
-                onMouseEnter={() => {}}
-                onMouseLeave={() => {}}
+                onMouseEnter={() => { }}
+                onMouseLeave={() => { }}
                 references={references}
                 onCitationClick={handleCitationClick}
                 searchQuery={searchQuery}
                 allSections={sections}
-                contentRef={contentRef} 
+                contentRef={contentRef}
+                onBlockUpdate={(updatedBlock) => onBlockUpdate?.(updatedBlock, section.id)}
               />
             </div>
           );
         })}
-        
+
         {/* 🔥 递归渲染子章节 */}
-        {section.subsections?.map((subsection) => 
+        {section.subsections?.map((subsection) =>
           renderSectionRecursiveEn(subsection, level + 1)
         )}
       </section>
@@ -333,22 +412,21 @@ export default function PaperContent({
     return (
       <>
         {sections.map((section) => renderSectionRecursive(section, 0))}
-        
+
         {references && references.length > 0 && (
           <section id="references" className="mt-8 pt-4 border-t-2 border-gray-300">
             <h2 className="text-2xl font-bold text-gray-900 mb-3">References</h2>
             <div className="space-y-2">
               {references.map((ref) => {
-                const isHighlighted = highlightedRefs.includes(ref.id) || 
-                                     highlightedRefs.includes(String(ref.number));
-                
+                const isHighlighted = highlightedRefs.includes(ref.id) ||
+                  highlightedRefs.includes(String(ref.number));
+
                 return (
-                  <div 
+                  <div
                     key={ref.id}
                     id={`ref-${ref.id}`}
-                    className={`text-sm text-gray-700 p-2 rounded transition-all duration-300 ${
-                      isHighlighted ? 'bg-yellow-100 ring-2 ring-yellow-400' : 'hover:bg-gray-50'
-                    }`}
+                    className={`text-sm text-gray-700 p-2 rounded transition-all duration-300 ${isHighlighted ? 'bg-yellow-100 ring-2 ring-yellow-400' : 'hover:bg-gray-50'
+                      }`}
                   >
                     <span className="font-bold text-blue-600 mr-2">
                       [{ref.number || ref.id}]
@@ -358,8 +436,8 @@ export default function PaperContent({
                     {ref.publication && <span>{ref.publication}</span>}
                     {ref.year && <span> ({ref.year})</span>}
                     {ref.doi && (
-                      <a 
-                        href={`https://doi.org/${ref.doi}`} 
+                      <a
+                        href={`https://doi.org/${ref.doi}`}
                         className="text-blue-600 hover:underline ml-2"
                         target="_blank"
                         rel="noreferrer"
@@ -380,22 +458,21 @@ export default function PaperContent({
   return (
     <>
       {sections.map((section) => renderSectionRecursiveEn(section, 0))}
-      
+
       {references && references.length > 0 && (
         <section id="references" className="mt-8 pt-4 border-t-2 border-gray-300">
           <h2 className="text-2xl font-bold text-gray-900 mb-3">References</h2>
           <div className="space-y-2">
             {references.map((ref) => {
-              const isHighlighted = highlightedRefs.includes(ref.id) || 
-                                   highlightedRefs.includes(String(ref.number));
-              
+              const isHighlighted = highlightedRefs.includes(ref.id) ||
+                highlightedRefs.includes(String(ref.number));
+
               return (
-                <div 
+                <div
                   key={ref.id}
                   id={`ref-${ref.id}`}
-                  className={`text-sm text-gray-700 p-2 rounded transition-all duration-300 ${
-                    isHighlighted ? 'bg-yellow-100 ring-2 ring-yellow-400' : 'hover:bg-gray-50'
-                  }`}
+                  className={`text-sm text-gray-700 p-2 rounded transition-all duration-300 ${isHighlighted ? 'bg-yellow-100 ring-2 ring-yellow-400' : 'hover:bg-gray-50'
+                    }`}
                 >
                   <span className="font-bold text-blue-600 mr-2">
                     [{ref.number || ref.id}]
@@ -405,8 +482,8 @@ export default function PaperContent({
                   {ref.publication && <span>{ref.publication}</span>}
                   {ref.year && <span> ({ref.year})</span>}
                   {ref.doi && (
-                    <a 
-                      href={`https://doi.org/${ref.doi}`} 
+                    <a
+                      href={`https://doi.org/${ref.doi}`}
                       className="text-blue-600 hover:underline ml-2"
                       target="_blank"
                       rel="noreferrer"

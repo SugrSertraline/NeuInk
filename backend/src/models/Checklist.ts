@@ -199,7 +199,7 @@ export class Checklist {
       values.push(newFullPath);
 
       // 🆕 同步更新论文JSON中的清单路径
-      const { updateChecklistPathInPapers } = await import('../utils/checklistHelper');
+      const { updateChecklistPathInPapers } = await import('../utils/checklistHelper.js');
       await updateChecklistPathInPapers(id, newFullPath);
 
       // 如果当前节点是一级分类且名称改变，需要更新所有子节点的 full_path

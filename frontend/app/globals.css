@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* 导入自定义字体 */
+/* ==================== 自定义字体 ==================== */
 @font-face {
   font-family: 'PressStart2P';
   src: url('/PressStart2P-Regular.ttf') format('truetype');
@@ -17,6 +17,12 @@
   font-display: swap;
 }
 
+/* ==================== Dark Mode 支持 ==================== */
+/* 如果使用基于类的 dark mode，启用此行 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ==================== 主题颜色变量 ==================== */
+/* 这些变量用于 shadcn/ui 组件，保持在 :root 中 */
 :root {
   --background: 0 0% 100%;
   --foreground: 222.2 84% 4.9%;
@@ -58,203 +64,248 @@
   --ring: 212.7 26.8% 83.9%;
 }
 
-* {
-  border-color: hsl(var(--border));
+/* ==================== 基础样式 ==================== */
+@layer base {
+  /* 全局边框颜色 */
+  * {
+    border-color: hsl(var(--border));
+  }
+  
+  /* 防止文本选择（全局） */
+  *,
+  *::before,
+  *::after {
+    outline: none !important;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+  
+  /* 允许特定元素选择文本 */
+  input,
+  textarea,
+  [contenteditable="true"],
+  .prose,
+  .prose * {
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    user-select: text !important;
+  }
+  
+  /* 防止按钮和标题文本被选中 */
+  button,
+  .button,
+  h1, h2, h3, h4, h5, h6,
+  .title,
+  .label,
+  .tab {
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    user-select: none !important;
+  }
 }
 
-.scrollbar-thin::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* ==================== 自定义滚动条 Utility ==================== */
+@utility scrollbar-thin {
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 3px;
+  }
+  
+  &::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
 }
 
-.scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background: hsl(var(--border));
-  border-radius: 3px;
-}
-
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.5);
-}
-*,
-*::before,
-*::after {
-  outline: none !important;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-}
-
-/* 允许特定元素选择文本 */
-input, textarea, [contenteditable="true"], .prose, .prose * {
-  -webkit-user-select: text;
-  -moz-user-select: text;
-  -ms-user-select: text;
-  user-select: text;
-}
-
-/* Electron 特定样式 */
-.electron-app {
+/* ==================== Electron 相关样式 ==================== */
+@utility electron-app {
   -webkit-app-region: no-drag;
+  
+  & * {
+    -webkit-user-select: none;
+  }
+  
+  & input,
+  & textarea,
+  & [contenteditable="true"],
+  & .prose,
+  & .prose * {
+    -webkit-user-select: text;
+  }
 }
 
-.electron-app * {
-  -webkit-user-select: none;
-}
-
-.electron-app input,
-.electron-app textarea,
-.electron-app [contenteditable="true"],
-.electron-app .prose,
-.electron-app .prose * {
-  -webkit-user-select: text;
-}
-
-/* 自定义标题栏样式 */
-.drag-region {
+@utility drag-region {
   -webkit-app-region: drag;
 }
 
-.no-drag-region {
+@utility no-drag-region {
   -webkit-app-region: no-drag;
 }
 
-/* 标题栏按钮悬停效果 */
-.titlebar-button {
-  -webkit-app-region: no-drag;
-  transition: all 0.15s ease;
+/* ==================== 标题栏按钮样式 ==================== */
+@layer components {
+  .titlebar-button {
+    -webkit-app-region: no-drag;
+    transition: all 0.15s ease;
+  }
+  
+  .titlebar-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .titlebar-button.close:hover {
+    background-color: #e81123 !important;
+  }
+  
+  /* 暗色模式下的标题栏按钮 */
+  .dark .titlebar-button:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+  
+  .dark .titlebar-button.close:hover {
+    background-color: #e81123 !important;
+  }
 }
 
-.titlebar-button:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.titlebar-button.close:hover {
-  background-color: #e81123 !important;
-}
-
-/* 暗色模式下的标题栏按钮 */
-.dark .titlebar-button:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-}
-
-.dark .titlebar-button.close:hover {
-  background-color: #e81123 !important;
-}
-
-/* 防止按钮文本被选中 */
-button, .button {
-  -webkit-user-select: none !important;
-  -moz-user-select: none !important;
-  -ms-user-select: none !important;
-  user-select: none !important;
-}
-
-/* 防止标题和标签文本被选中 */
-h1, h2, h3, h4, h5, h6, .title, .label, .tab {
-  -webkit-user-select: none !important;
-  -moz-user-select: none !important;
-  -ms-user-select: none !important;
-  user-select: none !important;
-}
-
-.prose {
-  color: #374151;
-}
-
-.prose h1 {
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-}
-
-.prose h2 {
-  font-size: 1.125rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-}
-
-.prose h3 {
-  font-size: 1rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-}
-
-.prose p {
-  margin-bottom: 0.5rem;
-}
-
-.prose ul,
-.prose ol {
-  margin-left: 1rem;
-  margin-bottom: 0.5rem;
-}
-
-.prose li {
-  margin-bottom: 0.25rem;
-}
-
-.prose code {
-  background-color: #f3f4f6;
-  padding: 0.125rem 0.25rem;
-  border-radius: 0.25rem;
-  font-size: 0.875rem;
-}
-
-.prose pre {
-  background-color: #f3f4f6;
-  padding: 0.5rem;
-  border-radius: 0.25rem;
-  overflow-x: auto;
-  margin-bottom: 0.5rem;
-}
-
-.prose pre code {
-  background-color: transparent;
-  padding: 0;
-  font-size: inherit;
-}
-
-.prose blockquote {
-  border-left: 4px solid #d1d5db;
-  padding-left: 1rem;
-  font-style: italic;
-  color: #6b7280;
-}
-
-.prose a {
-  color: #2563eb;
-  text-decoration: none;
-}
-
-.prose a:hover {
-  text-decoration: underline;
-}
-
-.prose img {
-  max-width: 100%;
-  height: auto;
-  border-radius: 0.25rem;
-}
-
-.prose table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 0.5rem;
-}
-
-.prose th,
-.prose td {
-  border: 1px solid #d1d5db;
-  padding: 0.5rem;
-}
-
-.prose th {
-  background-color: #f9fafb;
-  font-weight: 600;
+/* ==================== Prose 样式（文章内容） ==================== */
+@layer components {
+  .prose {
+    color: #374151;
+  }
+  
+  .prose h1 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  
+  .prose h2 {
+    font-size: 1.125rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  
+  .prose h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  
+  .prose p {
+    margin-bottom: 0.5rem;
+  }
+  
+  .prose ul,
+  .prose ol {
+    margin-left: 1rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .prose li {
+    margin-bottom: 0.25rem;
+  }
+  
+  .prose code {
+    background-color: #f3f4f6;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+  }
+  
+  .prose pre {
+    background-color: #f3f4f6;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    overflow-x: auto;
+    margin-bottom: 0.5rem;
+  }
+  
+  .prose pre code {
+    background-color: transparent;
+    padding: 0;
+    font-size: inherit;
+  }
+  
+  .prose blockquote {
+    border-left: 4px solid #d1d5db;
+    padding-left: 1rem;
+    font-style: italic;
+    color: #6b7280;
+  }
+  
+  .prose a {
+    color: #2563eb;
+    text-decoration: none;
+  }
+  
+  .prose a:hover {
+    text-decoration: underline;
+  }
+  
+  .prose img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.25rem;
+  }
+  
+  .prose table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 0.5rem;
+  }
+  
+  .prose th,
+  .prose td {
+    border: 1px solid #d1d5db;
+    padding: 0.5rem;
+  }
+  
+  .prose th {
+    background-color: #f9fafb;
+    font-weight: 600;
+  }
+  
+  /* Dark mode support for prose */
+  .dark .prose {
+    color: #d1d5db;
+  }
+  
+  .dark .prose code {
+    background-color: #374151;
+  }
+  
+  .dark .prose pre {
+    background-color: #374151;
+  }
+  
+  .dark .prose blockquote {
+    border-left-color: #4b5563;
+    color: #9ca3af;
+  }
+  
+  .dark .prose a {
+    color: #60a5fa;
+  }
+  
+  .dark .prose th,
+  .dark .prose td {
+    border-color: #4b5563;
+  }
+  
+  .dark .prose th {
+    background-color: #1f2937;
+  }
 }

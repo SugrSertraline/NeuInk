@@ -83,12 +83,12 @@ function calculateTableNumbers(blocks: BlockContent[]): void {
 }
 
 /**
- * 计算公式编号（仅编号有 label 的公式）
+ * 计算公式编号（所有公式都编号）
  */
 function calculateMathNumbers(blocks: BlockContent[]): void {
   let mathCount = 0;
   blocks.forEach(block => {
-    if (block.type === 'math' && block.label) {
+    if (block.type === 'math') {
       mathCount++;
       block.number = mathCount;
     }
@@ -102,4 +102,30 @@ function calculateReferenceNumbers(references: Reference[]): void {
   references.forEach((ref, index) => {
     ref.number = index + 1;
   });
+}
+
+/**
+ * 在保存前清理所有编号（让后端或下次渲染重新计算）
+ */
+export function stripAllNumbers(content: PaperContent): PaperContent {
+  const newContent = JSON.parse(JSON.stringify(content)) as PaperContent;
+  
+  function stripSection(section: Section) {
+    delete section.number;
+    section.content.forEach(block => {
+      if ('number' in block) {
+        delete (block as any).number;
+      }
+    });
+    if (section.subsections) {
+      section.subsections.forEach(stripSection);
+    }
+  }
+  
+  newContent.sections.forEach(stripSection);
+  newContent.references.forEach(ref => {
+    delete ref.number;
+  });
+  
+  return newContent;
 }

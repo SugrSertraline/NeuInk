@@ -1,5 +1,65 @@
 {
-  "sections": [],
+  "sections": [
+    {
+      "id": "section_1760164541118",
+      "title": {
+        "en": "New Section",
+        "zh": "新章节"
+      },
+      "content": [],
+      "subsections": [
+        {
+          "id": "section_1760164545396",
+          "title": {
+            "en": "New Subsection",
+            "zh": "新子章节"
+          },
+          "content": [],
+          "subsections": [
+            {
+              "id": "section_1760164547173",
+              "title": {
+                "en": "New Subsection",
+                "zh": "新子章节"
+              },
+              "content": [],
+              "subsections": [
+                {
+                  "id": "section_1760164548410",
+                  "title": {
+                    "en": "New Subsection",
+                    "zh": "新子章节"
+                  },
+                  "content": [],
+                  "subsections": [
+                    {
+                      "id": "section_1760164594531",
+                      "title": {
+                        "en": "New Subsection",
+                        "zh": "新子章节"
+                      },
+                      "content": [],
+                      "subsections": [
+                        {
+                          "id": "section_1760164595974",
+                          "title": {
+                            "en": "New Subsection",
+                            "zh": "新子章节"
+                          },
+                          "content": [],
+                          "subsections": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
   "references": [],
   "blockNotes": [],
   "checklistNotes": [],

@@ -81,7 +81,7 @@ export async function updateChecklistPathInPapers(
   checklistId: string,
   newPath: string
 ): Promise<void> {
-  const { PaperChecklist } = await import('../models/PaperChecklist');
+  const { PaperChecklist } = await import('../models/PaperChecklist.js');
   
   // 获取所有关联的论文ID
   const paperIds = await PaperChecklist.findPaperIdsByChecklistId(checklistId);
@@ -132,7 +132,7 @@ export async function cleanOrphanChecklistNotes(): Promise<{
   scannedFiles: number;
   cleanedNotes: number;
 }> {
-  const { Checklist } = await import('../models/Checklist');
+  const { Checklist } = await import('../models/Checklist.js');
   
   // 获取所有有效的清单ID
   const tree = await Checklist.findAllTree();

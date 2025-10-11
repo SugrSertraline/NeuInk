@@ -21,12 +21,14 @@ export interface InlineElement {
 export interface TextNode extends InlineElement {
   type: 'text';
   content: string;
-  style?: {
+    style?: {
     bold?: boolean;
     italic?: boolean;
     underline?: boolean;
     strikethrough?: boolean;
     code?: boolean;
+    color?: string;           
+    backgroundColor?: string;  
   };
 }
 

@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 
 let mainWindow;
@@ -7,18 +7,18 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
+    minWidth: 800,
+    minHeight: 600,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js')
     },
-    titleBarStyle: 'hidden', // 隐藏原生标题栏
-    titleBarOverlay: false, // 不使用标题栏覆盖
-    autoHideMenuBar: true,  // 隐藏菜单栏
-    frame: true, // 保留窗口边框
-    transparent: false, // 不透明
-    // 防止窗口标题栏文本被选中
+    frame: false, // 完全隐藏原生标题栏和边框
+    transparent: false,
+    autoHideMenuBar: true,
     show: false,
+    backgroundColor: '#ffffff',
   });
 
   // 开发环境加载Next.js dev server
@@ -26,16 +26,12 @@ function createWindow() {
   
   if (isDev) {
     mainWindow.loadURL('http://localhost:3000');
-    // 移除自动打开开发者工具
-    // mainWindow.webContents.openDevTools();
   } else {
-    // 生产环境加载打包后的文件
     mainWindow.loadFile(path.join(__dirname, '../../frontend/out/index.html'));
   }
 
   // 防止文本选择和其他默认行为
   mainWindow.webContents.on('did-finish-load', () => {
-    // 注入样式来防止文本选择
     mainWindow.webContents.insertCSS(`
       * {
         -webkit-user-select: none !important;
@@ -51,7 +47,6 @@ function createWindow() {
         user-select: text !important;
       }
       
-      /* 防止拖拽选择 */
       body {
         -webkit-user-drag: none;
         -khtml-user-drag: none;
@@ -59,14 +54,20 @@ function createWindow() {
         -o-user-drag: none;
         user-drag: none;
       }
+      
+      /* 自定义标题栏可拖动区域 */
+      .electron-drag {
+        -webkit-app-region: drag;
+      }
+      
+      .electron-no-drag {
+        -webkit-app-region: no-drag;
+      }
     `);
     
-    // 注入脚本来清除选择
     mainWindow.webContents.executeJavaScript(`
-      // 清除任何现有选择
       window.getSelection()?.removeAllRanges();
       
-      // 防止双击选择文本
       document.addEventListener('dblclick', function(e) {
         if (!e.target.matches('input, textarea, [contenteditable="true"], .prose, .prose *')) {
           e.preventDefault();
@@ -74,14 +75,12 @@ function createWindow() {
         }
       });
       
-      // 防止拖拽选择
       document.addEventListener('selectstart', function(e) {
         if (!e.target.matches('input, textarea, [contenteditable="true"], .prose, .prose *')) {
           e.preventDefault();
         }
       });
       
-      // 防右键菜单选择
       document.addEventListener('contextmenu', function(e) {
         if (!e.target.matches('input, textarea, [contenteditable="true"], .prose, .prose *')) {
           window.getSelection()?.removeAllRanges();
@@ -92,11 +91,10 @@ function createWindow() {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
-    // 清除窗口加载后的任何文本选择
     mainWindow.webContents.executeJavaScript('window.getSelection()?.removeAllRanges();');
   });
 
-  // 监听 F12 按键，手动打开/关闭开发者工具
+  // F12 开发者工具
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.key === 'F12') {
       if (mainWindow.webContents.isDevToolsOpened()) {
@@ -107,7 +105,7 @@ function createWindow() {
     }
   });
 
-  // 监听 Ctrl+R 或 Cmd+R 刷新页面
+  // Ctrl+R 或 Cmd+R 刷新
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if ((input.control || input.meta) && input.key === 'r') {
       mainWindow.webContents.reload();
@@ -118,6 +116,45 @@ function createWindow() {
     mainWindow = null;
   });
 }
+
+// IPC 处理器 - 窗口控制
+ipcMain.handle('window:minimize', () => {
+  if (mainWindow) {
+    mainWindow.minimize();
+  }
+});
+
+ipcMain.handle('window:maximize', () => {
+  if (mainWindow) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+  }
+});
+
+ipcMain.handle('window:close', () => {
+  if (mainWindow) {
+    mainWindow.close();
+  }
+});
+
+ipcMain.handle('window:isMaximized', () => {
+  if (mainWindow) {
+    return mainWindow.isMaximized();
+  }
+  return false;
+});
+
+// 应用控制
+ipcMain.handle('app:getVersion', () => {
+  return app.getVersion();
+});
+
+ipcMain.handle('app:quit', () => {
+  app.quit();
+});
 
 app.whenReady().then(() => {
   createWindow();

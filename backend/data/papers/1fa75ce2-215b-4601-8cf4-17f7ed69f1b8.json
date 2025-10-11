@@ -11,7 +11,6 @@
   "sections": [
     {
       "id": "section-1",
-      "number": "1",
       "title": {
         "en": "Introduction",
         "zh": "引言"
@@ -24,30 +23,110 @@
             "en": [
               {
                 "type": "text",
-                "content": "Recurrent neural networks, long short-term memory "
+                "content": "fff"
+              },
+              {
+                "type": "text",
+                "content": "ffffff",
+                "style": {
+                  "color": "#ef4444"
+                }
+              },
+              {
+                "type": "figure-ref",
+                "figureId": "figure_1760163076381",
+                "displayText": "Figure 1"
+              },
+              {
+                "type": "text",
+                "content": "t neural networks,tyests,",
+                "style": {
+                  "color": "#ef4444"
+                }
+              },
+              {
+                "type": "equation-ref",
+                "equationId": "block-math-1",
+                "displayText": "Equation 1"
+              },
+              {
+                "type": "text",
+                "content": " long short-term ",
+                "style": {
+                  "color": "#ef4444",
+                  "underline": true
+                }
+              },
+              {
+                "type": "text",
+                "content": "memory "
               },
               {
                 "type": "citation",
                 "referenceIds": [
-                  "ref-1",
+                  "re____f-1",
                   "ref-2"
                 ],
-                "displayText": "[1, 2]"
+                "displayText": "re____f-1,ref-2"
               },
               {
                 "type": "text",
-                "content": " and gated recurrent "
+                "content": " and gate](url"
+              },
+              {
+                "type": "text",
+                "content": ")d recurrent ",
+                "style": {
+                  "backgroundColor": "#fee2e2"
+                }
               },
               {
                 "type": "citation",
                 "referenceIds": [
                   "ref-3"
                 ],
-                "displayText": "[3]"
+                "displayText": "ref-3"
               },
               {
                 "type": "text",
-                "content": " neural networks in particular, have been firmly established as state of the art approaches in sequence modeling and transduction problems such as language modeling and machine translation "
+                "content": " n",
+                "style": {
+                  "backgroundColor": "#fee2e2"
+                }
+              },
+              {
+                "type": "text",
+                "content": "eural networks in particular, have been firmly established as state of the art approaches in sequence modeling and transducti",
+                "style": {
+                  "color": "#ef4444",
+                  "backgroundColor": "#fee2e2"
+                }
+              },
+              {
+                "type": "text",
+                "content": "on problems such as langua",
+                "style": {
+                  "color": "#ef4444"
+                }
+              },
+              {
+                "type": "text",
+                "content": "ge modeling and m",
+                "style": {
+                  "color": "#ef4444",
+                  "bold": true
+                }
+              },
+              {
+                "type": "text",
+                "content": "achine translati",
+                "style": {
+                  "color": "#ef4444"
+                }
+              },
+              {
+                "type": "text",
+                "content": "on "
               },
               {
                 "type": "citation",
@@ -56,7 +135,7 @@
                   "ref-5",
                   "ref-6"
                 ],
-                "displayText": "[4, 5, 6]"
+                "displayText": "ref-4,ref-5,ref-6"
               },
               {
                 "type": "text",
@@ -101,22 +180,35 @@
             "en": [
               {
                 "type": "text",
-                "content": "Recurrent models typically factor computation along the symbol positions of the input and output sequences. The sequential nature fundamentally limits the parallelization of training examples"
+                "content": "Recurrent models typically factor computatio"
+              },
+              {
+                "type": "text",
+                "content": "n along the symbol positions of the input and output sequences. The sequential nature fundamentally limits the parallelization of training examples",
+                "style": {
+                  "bold": true
+                }
               },
               {
                 "type": "footnote",
-                "id": "fn-1",
+                "id": "fn_1760164007679_0.40979038251491395",
                 "content": "This limitation becomes critical at longer sequence lengths, as memory constraints limit batching across examples.",
                 "displayText": "¹"
               },
               {
                 "type": "text",
-                "content": ", which becomes critical at longer sequence lengths. For more details, see "
+                "content": ", which becomes critical at longer s",
+                "style": {
+                  "bold": true
+                }
+              },
+              {
+                "type": "text",
+                "content": "equence lengths. For more details, see "
               },
               {
                 "type": "link",
                 "url": "https://arxiv.org/abs/1609.08144",
-                "title": "Google's Neural Machine Translation",
                 "children": [
                   {
                     "type": "text",
@@ -138,7 +230,25 @@
             "en": [
               {
                 "type": "text",
-                "content": "The Transformer model architecture is shown in "
+                "content": "The Trans"
+              },
+              {
+                "type": "text",
+                "content": "former model architecture i",
+                "style": {
+                  "bold": true
+                }
+              },
+              {
+                "type": "text",
+                "content": "s sh"
+              },
+              {
+                "type": "text",
+                "content": "own in ",
+                "style": {
+                  "underline": true
+                }
               },
               {
                 "type": "figure-ref",
@@ -147,7 +257,14 @@
               },
               {
                 "type": "text",
-                "content": ". As we will demonstrate in "
+                "content": ". As we will demonstrate",
+                "style": {
+                  "underline": true
+                }
+              },
+              {
+                "type": "text",
+                "content": " in "
               },
               {
                 "type": "section-ref",
@@ -193,16 +310,45 @@
               {
                 "type": "text",
                 "content": "Attention mechanisms have become an integral part of compelling sequence modeling and transduction models in various tasks, allowing modeling of dependencies without regard to their distance in the input or output sequences."
+              },
+              {
+                "type": "figure-ref",
+                "figureId": "figure_1760163076381",
+                "displayText": "Figure 1"
               }
             ]
           },
           "author": "Bahdanau et al., 2015"
+        },
+        {
+          "id": "figure_1760163076381",
+          "type": "figure",
+          "caption": {
+            "en": [
+              {
+                "type": "text",
+                "content": "防守打法水电费地方"
+              }
+            ],
+            "zh": []
+          },
+          "src": "/api/uploads/images/1fa75ce2-215b-4601-8cf4-17f7ed69f1b8/1760163081624-dm55mf3m2s.png",
+          "uploadedFilename": "1760163081624-dm55mf3m2s.png",
+          "alt": "测试"
         }
       ]
     },
     {
+      "id": "section_1760165522957",
+      "title": {
+        "en": "New Section",
+        "zh": "新章节"
+      },
+      "content": [],
+      "subsections": []
+    },
+    {
       "id": "section-2",
-      "number": "2",
       "title": {
         "en": "Model Architecture",
         "zh": "模型架构"
@@ -211,7 +357,6 @@
         {
           "id": "block-fig-1",
           "type": "figure",
-          "number": 1,
           "src": "/api/uploads/images/1fa75ce2-215b-4601-8cf4-17f7ed69f1b8/test.jpeg",
           "alt": "Transformer Architecture",
           "caption": {
@@ -251,7 +396,42 @@
             "en": [
               {
                 "type": "text",
-                "content": "Most competitive neural sequence transduction models have an encoder-decoder structure "
+                "content": "Mo"
+              },
+              {
+                "type": "text",
+                "content": "st competitive ne",
+                "style": {
+                  "bold": true
+                }
+              },
+              {
+                "type": "text",
+                "content": "ural se",
+                "style": {
+                  "bold": true,
+                  "italic": true
+                }
+              },
+              {
+                "type": "text",
+                "content": "quence transdu",
+                "style": {
+                  "bold": true,
+                  "italic": true,
+                  "color": "#ef4444"
+                }
+              },
+              {
+                "type": "text",
+                "content": "ction models have an encoder-decod",
+                "style": {
+                  "bold": true
+                }
+              },
+              {
+                "type": "text",
+                "content": "er structure "
               },
               {
                 "type": "citation",
@@ -271,7 +451,19 @@
               },
               {
                 "type": "text",
-                "content": " to a sequence of continuous representations "
+                "content": " to a sequence of continuous r"
+              },
+              {
+                "type": "text",
+                "content": "epr",
+                "style": {
+                  "underline": true
+                }
+              },
+              {
+                "type": "text",
+                "content": "esentations ",
+                "style": {}
               },
               {
                 "type": "inline-math",
@@ -279,7 +471,8 @@
               },
               {
                 "type": "text",
-                "content": "."
+                "content": ".",
+                "style": {}
               }
             ]
           }
@@ -292,7 +485,6 @@
           "id": "block-heading-2-1",
           "type": "heading",
           "level": 3,
-          "number": "2.1",
           "content": {
             "en": [
               {
@@ -411,7 +603,6 @@
     },
     {
       "id": "section-3",
-      "number": "3",
       "title": {
         "en": "Attention",
         "zh": "注意力机制"
@@ -445,8 +636,7 @@
           "id": "block-math-1",
           "type": "math",
           "latex": "\\text{Attention}(Q, K, V) = \\text{softmax}\\left(\\frac{QK^T}{\\sqrt{d_k}}\\right)V",
-          "label": "(1)",
-          "number": 1
+          "label": "(1)"
         },
         {
           "id": "block-p7",
@@ -463,7 +653,41 @@
               },
               {
                 "type": "text",
-                "content": " is the dimension of the keys. We scale by "
+                "content": " is t"
+              },
+              {
+                "type": "text",
+                "content": "he di",
+                "style": {
+                  "bold": true
+                }
+              },
+              {
+                "type": "text",
+                "content": "mension ",
+                "style": {
+                  "bold": true,
+                  "color": "#f97316"
+                }
+              },
+              {
+                "type": "text",
+                "content": "of the keys. We ",
+                "style": {
+                  "bold": true,
+                  "color": "#ef4444"
+                }
+              },
+              {
+                "type": "text",
+                "content": "sca",
+                "style": {
+                  "color": "#ef4444"
+                }
+              },
+              {
+                "type": "text",
+                "content": "le by "
               },
               {
                 "type": "inline-math",
@@ -490,7 +714,6 @@
           "id": "block-heading-3-1",
           "type": "heading",
           "level": 3,
-          "number": "3.1",
           "content": {
             "en": [
               {
@@ -516,20 +739,17 @@
           "id": "block-math-2",
           "type": "math",
           "latex": "\\text{MultiHead}(Q, K, V) = \\text{Concat}(\\text{head}_1, ..., \\text{head}_h)W^O",
-          "label": "(2)",
-          "number": 2
+          "label": "(2)"
         },
         {
           "id": "block-math-3",
           "type": "math",
           "latex": "\\text{head}_i = \\text{Attention}(QW_i^Q, KW_i^K, VW_i^V)",
-          "label": "(3)",
-          "number": 3
+          "label": "(3)"
         },
         {
           "id": "block-table-1",
           "type": "table",
-          "number": 1,
           "caption": {
             "en": [
               {
@@ -637,7 +857,6 @@
     },
     {
       "id": "section-4",
-      "number": "4",
       "title": {
         "en": "Position-wise Feed-Forward Networks",
         "zh": "逐位置前馈网络"
@@ -659,8 +878,7 @@
           "id": "block-math-4",
           "type": "math",
           "latex": "\\text{FFN}(x) = \\max(0, xW_1 + b_1)W_2 + b_2",
-          "label": "(4)",
-          "number": 4
+          "label": "(4)"
         },
         {
           "id": "block-code-1",
@@ -681,7 +899,6 @@
     },
     {
       "id": "section-5",
-      "number": "5",
       "title": {
         "en": "Training",
         "zh": "训练"
@@ -703,7 +920,6 @@
           "id": "block-heading-5-1",
           "type": "heading",
           "level": 3,
-          "number": "5.1",
           "content": {
             "en": [
               {
@@ -751,7 +967,6 @@
     },
     {
       "id": "section-6",
-      "number": "6",
       "title": {
         "en": "Results",
         "zh": "结果"
@@ -760,7 +975,6 @@
         {
           "id": "block-table-2",
           "type": "table",
-          "number": 2,
           "caption": {
             "en": [
               {
@@ -857,7 +1071,6 @@
     },
     {
       "id": "section-7",
-      "number": "7",
       "title": {
         "en": "Conclusion",
         "zh": "结论"
@@ -919,7 +1132,6 @@
   "references": [
     {
       "id": "ref-1",
-      "number": 1,
       "authors": [
         "Sepp Hochreiter",
         "Jürgen Schmidhuber"
@@ -934,7 +1146,6 @@
     },
     {
       "id": "ref-2",
-      "number": 2,
       "authors": [
         "Alex Graves"
       ],
@@ -944,7 +1155,6 @@
     },
     {
       "id": "ref-3",
-      "number": 3,
       "authors": [
         "Junyoung Chung",
         "Caglar Gulcehre",
@@ -957,7 +1167,6 @@
     },
     {
       "id": "ref-4",
-      "number": 4,
       "authors": [
         "Ilya Sutskever",
         "Oriol Vinyals",
@@ -970,7 +1179,6 @@
     },
     {
       "id": "ref-5",
-      "number": 5,
       "authors": [
         "Dzmitry Bahdanau",
         "Kyunghyun Cho",
@@ -982,7 +1190,6 @@
     },
     {
       "id": "ref-6",
-      "number": 6,
       "authors": [
         "Minh-Thang Luong",
         "Hieu Pham",
@@ -995,7 +1202,6 @@
     },
     {
       "id": "ref-7",
-      "number": 7,
       "authors": [
         "Ondrej Bojar",
         "et al."
@@ -1006,7 +1212,6 @@
     },
     {
       "id": "ref-8",
-      "number": 8,
       "authors": [
         "Rico Sennrich",
         "Barry Haddow",
@@ -1127,6 +1332,24 @@
       ],
       "createdAt": "2025-10-10T15:53:42.862Z",
       "updatedAt": "2025-10-10T15:53:57.854Z"
+    },
+    {
+      "id": "note-1760162774541-0y94l9rp1",
+      "blockId": "block-p1",
+      "content": "烦都烦死第三方付",
+      "tags": [
+        "12231"
+      ],
+      "createdAt": "2025-10-11T06:06:14.541Z",
+      "updatedAt": "2025-10-11T06:06:14.541Z"
+    },
+    {
+      "id": "note-1760163398531-36p79ugcv",
+      "blockId": "block-math-1",
+      "content": "**回溯时光**徽杭古道发过火",
+      "tags": [],
+      "createdAt": "2025-10-11T06:16:38.531Z",
+      "updatedAt": "2025-10-11T06:16:38.531Z"
     }
   ],
   "checklistNotes": [
@@ -1134,10 +1357,12 @@
       "id": "note-1759987231557-bkz8bvlgp",
       "checklistId": "25ee44dc-1eca-45cf-9b9c-5b5d73edb917",
       "checklistPath": "测测/你好",
-      "content": "hahaa",
-      "tags": [],
+      "content": "1. 熔沸点发斯蒂芬对方水电费地方\n2. 法师打发斯蒂芬",
+      "tags": [
+        "cv"
+      ],
       "createdAt": "2025-10-09T05:20:31.557Z",
-      "updatedAt": "2025-10-09T05:20:31.557Z"
+      "updatedAt": "2025-10-11T06:20:01.434Z"
     },
     {
       "id": "note-1759987233817-8zhw3rtdb",
@@ -1165,6 +1390,17 @@
       "tags": [],
       "createdAt": "2025-10-09T06:53:03.351Z",
       "updatedAt": "2025-10-09T06:53:03.352Z"
+    },
+    {
+      "id": "note-1760164226252-csyr2kced",
+      "checklistId": "b1678dee-e48b-4ef2-b133-1e5e57977cc5",
+      "checklistPath": "缺陷检测/方法",
+      "content": "阿萨水电费水电费",
+      "tags": [
+        "异常检测"
+      ],
+      "createdAt": "2025-10-11T06:30:26.252Z",
+      "updatedAt": "2025-10-11T06:30:26.252Z"
     }
   ],
   "pdfPath": "/api/uploads/papers/aa25138f-98c2-4925-b68e-c48cc99334b0/transformer.pdf",

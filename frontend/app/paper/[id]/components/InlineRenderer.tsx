@@ -37,13 +37,13 @@ function InlineMath({ math }: { math: string }) {
   return <span ref={ref} className="inline-block mx-0.5" />;
 }
 
-export default function InlineRenderer({ 
-  nodes, 
+export default function InlineRenderer({
+  nodes,
   references = [],
   onCitationClick,
   searchQuery = '',
   allSections = [],
-  contentRef 
+  contentRef
 }: InlineRendererProps) {
   if (!nodes) return null;
 
@@ -54,7 +54,7 @@ export default function InlineRenderer({
       if (found && (found.type === 'figure' || found.type === 'table')) {
         return found as FigureBlock | TableBlock;
       }
-      
+
       if (section.subsections) {
         for (const sub of section.subsections) {
           const subFound = sub.content.find(block => block.id === id);
@@ -70,11 +70,11 @@ export default function InlineRenderer({
   // 搜索高亮函数
   const highlightText = (text: string) => {
     if (!searchQuery.trim()) return text;
-    
+
     const regex = new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
     const parts = text.split(regex);
-    
-    return parts.map((part, i) => 
+
+    return parts.map((part, i) =>
       regex.test(part) ? (
         <mark key={i} className="bg-yellow-200 text-gray-900 rounded px-0.5">
           {part}
@@ -95,37 +95,43 @@ export default function InlineRenderer({
             if (textNode.style?.underline) className += 'underline ';
             if (textNode.style?.strikethrough) className += 'line-through ';
             if (textNode.style?.code) className += 'px-1.5 py-0.5 bg-gray-100 rounded text-sm font-mono text-red-600 ';
-            
+
+            const inlineStyle: React.CSSProperties = {
+              userSelect: 'text' // 🆕 确保文本可选
+            };
+            if (textNode.style?.color) inlineStyle.color = textNode.style.color;
+            if (textNode.style?.backgroundColor) inlineStyle.backgroundColor = textNode.style.backgroundColor;
+
             return (
-              <span key={i} className={className}>
+              <span key={i} className={className} style={inlineStyle}>
                 {highlightText(textNode.content)}
               </span>
             );
           }
-          
+
           case 'link':
             return (
-              <a 
-                key={i} 
-                href={node.url} 
-                className="text-blue-600 hover:text-blue-800 underline decoration-blue-300 hover:decoration-blue-500 transition-colors" 
-                target="_blank" 
+              <a
+                key={i}
+                href={node.url}
+                className="text-blue-600 hover:text-blue-800 underline decoration-blue-300 hover:decoration-blue-500 transition-colors"
+                target="_blank"
                 rel="noreferrer"
                 title={node.title}
               >
-                <InlineRenderer 
-                  nodes={(node as any).children} 
+                <InlineRenderer
+                  nodes={(node as any).children}
                   searchQuery={searchQuery}
                   allSections={allSections}
                 />
               </a>
             );
-          
+
           case 'citation': {
             const citationNode = node as any;
             const refIds = citationNode.referenceIds || [];
             const displayText = citationNode.displayText || refIds.join(',');
-            
+
             // 获取引用详情
             const refDetails = refIds
               .map((id: string) => references.find(r => r.id === id || String(r.number) === id))
@@ -141,17 +147,17 @@ export default function InlineRenderer({
               />
             );
           }
-          
+
           case 'inline-math':
             return (
               <InlineMath key={i} math={node.latex || ''} />
             );
-          
+
           case 'figure-ref': {
             const refNode = node as any;
             const displayText = refNode.displayText || '';
             const figureId = refNode.figureId;
-            
+
             return (
               <FigureRefLink
                 key={i}
@@ -161,12 +167,12 @@ export default function InlineRenderer({
               />
             );
           }
-          
+
           case 'table-ref': {
             const refNode = node as any;
             const displayText = refNode.displayText || '';
             const tableId = refNode.tableId;
-            
+
             return (
               <TableRefLink
                 key={i}
@@ -176,58 +182,58 @@ export default function InlineRenderer({
               />
             );
           }
-          
+
           case 'section-ref':
           case 'equation-ref': {
             const refNode = node as any;
             const displayText = refNode.displayText || '';
             const targetId = refNode.sectionId || refNode.equationId;
-            
+
             return (
               <a
-              key={i}
-              href={`#${targetId}`}
-              className="text-blue-600 hover:text-blue-800 font-medium cursor-pointer hover:underline"
-              onClick={(e) => {
-                e.preventDefault();
-                // 修改：使用contentRef进行滚动，而不是window.scrollIntoView
-                const el = document.getElementById(targetId);
-                if (el && contentRef?.current) {
-                  const containerRect = contentRef.current.getBoundingClientRect();
-                  const elementRect = el.getBoundingClientRect();
-                  const scrollTop = contentRef.current.scrollTop;
-                  const targetPosition = scrollTop + (elementRect.top - containerRect.top) - 100;
-                  
-                  contentRef.current.scrollTo({
-                    top: targetPosition,
-                    behavior: 'smooth'
-                  });
-                  
-                  el.classList.add('ring-2', 'ring-blue-400', 'bg-blue-50');
-                  setTimeout(() => {
-                    el.classList.remove('ring-2', 'ring-blue-400', 'bg-blue-50');
-                  }, 2000);
-                }
-              }}
+                key={i}
+                href={`#${targetId}`}
+                className="text-blue-600 hover:text-blue-800 font-medium cursor-pointer hover:underline"
+                onClick={(e) => {
+                  e.preventDefault();
+                  // 修改：使用contentRef进行滚动，而不是window.scrollIntoView
+                  const el = document.getElementById(targetId);
+                  if (el && contentRef?.current) {
+                    const containerRect = contentRef.current.getBoundingClientRect();
+                    const elementRect = el.getBoundingClientRect();
+                    const scrollTop = contentRef.current.scrollTop;
+                    const targetPosition = scrollTop + (elementRect.top - containerRect.top) - 100;
+
+                    contentRef.current.scrollTo({
+                      top: targetPosition,
+                      behavior: 'smooth'
+                    });
+
+                    el.classList.add('ring-2', 'ring-blue-400', 'bg-blue-50');
+                    setTimeout(() => {
+                      el.classList.remove('ring-2', 'ring-blue-400', 'bg-blue-50');
+                    }, 2000);
+                  }
+                }}
               >
                 {displayText}
               </a>
             );
           }
-          
+
           case 'footnote': {
             const footnoteNode = node as any;
             return (
-              <sup 
-                key={i} 
-                title={footnoteNode.content} 
+              <sup
+                key={i}
+                title={footnoteNode.content}
                 className="cursor-help text-amber-600 hover:text-amber-800 font-medium transition-colors"
               >
                 {footnoteNode.displayText}
               </sup>
             );
           }
-          
+
           default:
             return <span key={i} />;
         }
@@ -237,21 +243,21 @@ export default function InlineRenderer({
 }
 
 // 引用链接组件（带悬停预览）
-function CitationLink({ 
-  displayText, 
-  references, 
+function CitationLink({
+  displayText,
+  references,
   onClick,
-  contentRef 
-}: { 
-  displayText: string; 
-  references: Reference[]; 
+  contentRef
+}: {
+  displayText: string;
+  references: Reference[];
   onClick: () => void;
   contentRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
   const supRef = useRef<HTMLElement>(null);
-  
+
   const cleanDisplayText = displayText.replace(/^\[|\]$/g, '');
 
   useEffect(() => {
@@ -274,7 +280,7 @@ function CitationLink({
         onClick={(e) => {
           e.preventDefault();
           onClick();
-          
+
           const referencesElement = document.getElementById('references');
           if (referencesElement && contentRef?.current) {
             // Calculate the position relative to the scrollable container
@@ -282,7 +288,7 @@ function CitationLink({
             const elementRect = referencesElement.getBoundingClientRect();
             const scrollTop = contentRef.current.scrollTop;
             const targetPosition = scrollTop + (elementRect.top - containerRect.top) - 100; // 100px offset from top
-            
+
             contentRef.current.scrollTo({
               top: targetPosition,
               behavior: 'smooth'
@@ -292,9 +298,9 @@ function CitationLink({
       >
         [{cleanDisplayText}]
       </sup>
-      
+
       {showTooltip && references.length > 0 && createPortal(
-        <div 
+        <div
           className="fixed z-[9999] w-96 max-w-screen-sm bg-white rounded-lg shadow-2xl border border-gray-300 p-4 pointer-events-none"
           style={{
             top: `${tooltipPos.top - 8}px`,
@@ -375,7 +381,7 @@ function FigureRefLink({
           }}
         >
           <img
-          src={toAbsoluteUrl(figure.src)}
+            src={toAbsoluteUrl(figure.src)}
             alt={figure.alt || ''}
             className="w-full h-auto rounded"
           />

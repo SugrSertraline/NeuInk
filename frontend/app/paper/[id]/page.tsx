@@ -2,15 +2,16 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { apiGetData, apiPut } from '../../lib/api';
-import type { PaperContent as PaperContentType, Section } from '../../types/paper';
+import type { BlockContent, PaperContent as PaperContentType, Section } from '../../types/paper';
 import PaperHeader from './components/PaperHeader';
 import PaperMetadata from './components/PaperMetadata';
 import PaperContentComponent from './components/PaperContent';
 import EditablePaperContent from './components/editor/EditablePaperContent';
 import UnifiedNotesPanel from './components/UnifiedNotesPanel';
-import { X, StickyNote, FileText, FolderOpen } from 'lucide-react';
+import { X } from 'lucide-react';
 import { ChecklistNode } from '@neuink/shared';
 import { fetchPaperChecklists } from '@/app/lib/checklistApi';
+import { calculateAllNumbers, stripAllNumbers } from './utils/autoNumbering';
 
 type Lang = 'en' | 'both';
 type NoteMode = 'block' | 'checklist' | null;
@@ -20,6 +21,7 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
 
   // 原有状态
   const [content, setContent] = useState<PaperContentType | null>(null);
+  const [numberedContent, setNumberedContent] = useState<PaperContentType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lang, setLang] = useState<Lang>('en');
@@ -75,6 +77,14 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
     return sections.some(checkSection);
   };
 
+  // 🆕 当 content 变化时，自动计算编号
+  useEffect(() => {
+    if (content) {
+      const numbered = calculateAllNumbers(content);
+      setNumberedContent(numbered);
+    }
+  }, [content]);
+
   // 加载清单
   useEffect(() => {
     const loadChecklists = async () => {
@@ -112,7 +122,6 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
 
   const handleMouseLeave = useCallback(() => {
     isHeaderHoveredRef.current = false;
-    // 如果header被固定，不执行隐藏逻辑
     if (!isHeaderPinned) {
       startHideTimer(HOVER_LEAVE_DELAY);
     }
@@ -121,11 +130,9 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
   // 切换header固定状态
   const handleTogglePin = useCallback(() => {
     setIsHeaderPinned(prev => !prev);
-    // 如果取消固定，则开始隐藏计时器
     if (isHeaderPinned) {
       startHideTimer(HOVER_LEAVE_DELAY);
     } else {
-      // 如果固定，确保header显示
       setShowHeader(true);
     }
   }, [isHeaderPinned, startHideTimer, HOVER_LEAVE_DELAY]);
@@ -151,7 +158,6 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
   // 滚动效果
   useEffect(() => {
     const handleScroll = () => {
-      // 如果header被固定，不执行滚动显示/隐藏逻辑
       if (isHeaderPinned) return;
       
       clearHideTimer();
@@ -174,7 +180,7 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
     if (!content) return;
     setEditedContent(JSON.parse(JSON.stringify(content)));
     setIsEditMode(true);
-    setNoteMode(null); // 关闭笔记面板
+    setNoteMode(null);
     setHasUnsavedChanges(false);
     setSaveError(null);
   };
@@ -197,9 +203,12 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
     setSaveError(null);
 
     try {
+      // 🆕 保存前清理编号
+      const contentToSave = stripAllNumbers(editedContent);
+      
       const updatedContent = await apiPut<PaperContentType>(
         `/api/papers/${id}/content`,
-        editedContent
+        contentToSave
       );
 
       setContent(updatedContent);
@@ -241,7 +250,7 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
   const handleBlockClick = (blockId: string) => {
     if (isEditMode) return;
     setActiveBlockId(blockId);
-    setNoteMode('block'); // 自动切换到段落笔记模式
+    setNoteMode('block');
   };
 
   // 更新内容
@@ -250,9 +259,12 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
     setSaveError(null);
 
     try {
+      // 🆕 保存前清理编号
+      const contentToSave = stripAllNumbers(updatedContent);
+      
       const savedContent = await apiPut<PaperContentType>(
         `/api/papers/${id}/content`,
-        updatedContent
+        contentToSave
       );
 
       setContent(savedContent);
@@ -267,7 +279,39 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
       setIsSaving(false);
     }
   };
-
+// 🆕 处理单个块的快速编辑更新
+const handleBlockQuickEdit = async (updatedBlock: BlockContent, sectionId: string) => {
+  if (!numberedContent) return;
+  
+  // 递归查找并更新块
+  const updateBlockInSection = (section: Section): Section => {
+    if (section.id === sectionId) {
+      return {
+        ...section,
+        content: section.content.map(block => 
+          block.id === updatedBlock.id ? updatedBlock : block
+        )
+      };
+    }
+    
+    if (section.subsections) {
+      return {
+        ...section,
+        subsections: section.subsections.map(updateBlockInSection)
+      };
+    }
+    
+    return section;
+  };
+  
+  const updatedContent = {
+    ...numberedContent,
+    sections: numberedContent.sections.map(updateBlockInSection)
+  };
+  
+  // 保存到服务器
+  await handleContentUpdate(updatedContent);
+};
   // 搜索导航
   const navigateSearch = (direction: 'next' | 'prev') => {
     if (searchResults.length === 0) return;
@@ -329,7 +373,7 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
     );
   }
 
-  if (!content) {
+  if (!numberedContent) {
     return (
       <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-slate-900">
         <p className="text-gray-500 dark:text-slate-400">未找到论文内容</p>
@@ -402,10 +446,10 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
               }`}
             >
               <div className="max-w-6xl mx-auto px-8 py-6">
-                <PaperMetadata content={content} />
+                <PaperMetadata content={numberedContent} />
                 <PaperContentComponent
-                  sections={content.sections}
-                  references={content.references}
+                  sections={numberedContent.sections}
+                  references={numberedContent.references}
                   lang={lang}
                   searchQuery={searchQuery}
                   activeBlockId={activeBlockId}
@@ -414,9 +458,10 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
                   highlightedRefs={highlightedRefs}
                   setHighlightedRefs={setHighlightedRefs}
                   contentRef={contentRef}
-                  blockNotes={content.blockNotes}
+                  blockNotes={numberedContent.blockNotes}
                   setSearchResults={setSearchResults}
                   setCurrentSearchIndex={setCurrentSearchIndex}
+                  onBlockUpdate={handleBlockQuickEdit} 
                 />
               </div>
             </div>
@@ -424,7 +469,7 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
             {/* 统一笔记面板 */}
             {noteMode && (
               <UnifiedNotesPanel
-                content={content}
+                content={numberedContent}
                 mode={noteMode}
                 activeBlockId={activeBlockId}
                 activeChecklistId={activeChecklistId}
@@ -435,8 +480,6 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
                 isSaving={isSaving}
               />
             )}
-
-            
           </>
         )}
 
