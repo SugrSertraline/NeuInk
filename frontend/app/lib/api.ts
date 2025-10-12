@@ -279,3 +279,29 @@ export async function apiDownloadFile(
     throw error;
   }
 }
+
+// 在 frontend/app/lib/api.ts 中添加
+
+/**
+ * 获取 Blob 数据（用于文件下载）
+ */
+export async function apiGetBlob(path: string): Promise<Blob> {
+  const url = buildUrl(path);
+  
+  try {
+    const res = await fetch(url, { 
+      cache: 'no-store',
+    });
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error(`❌ 获取 Blob 失败 [${res.status}] ${path}:`, errorText);
+      throw new Error(`下载失败: ${res.statusText}`);
+    }
+    
+    return res.blob();
+  } catch (error) {
+    console.error(`❌ GET Blob 请求失败 [${path}]:`, error);
+    throw error;
+  }
+}

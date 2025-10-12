@@ -34,6 +34,8 @@ const SELECT_FIELDS = `
   reading_position   AS readingPosition,
   total_reading_time AS totalReadingTime,
   last_read_time     AS lastReadTime,
+  parse_status       AS parseStatus,
+  pdf_path           AS pdfPath,
   created_at         AS createdAt,
   updated_at         AS updatedAt
 `;
@@ -61,6 +63,8 @@ const COL_MAP: Record<string, string> = {
   readingPosition: 'reading_position',
   totalReadingTime: 'total_reading_time',
   lastReadTime: 'last_read_time',
+  parseStatus: 'parse_status',
+  pdfPath: 'pdf_path',
   createdAt: 'created_at',
   updatedAt: 'updated_at',
 };
@@ -110,9 +114,9 @@ export class Paper {
         id, title, short_title, authors, publication, year, date, doi,
         article_type, sci_quartile, cas_quartile, ccf_rank, impact_factor,
         tags, reading_status, priority, rating, notes,
-        reading_position, total_reading_time, last_read_time,
+        reading_position, total_reading_time, last_read_time, parse_status, pdf_path,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?, ?, ?, ?, ?, ?, ?)`,
       paper.id,
       paper.title,
       toNull(paper.shortTitle),
@@ -134,6 +138,8 @@ export class Paper {
       paper.readingPosition ?? 0,
       paper.totalReadingTime ?? 0,
       toNull(paper.lastReadTime),
+      'pending', // 默认解析状态
+      null, // 默认PDF路径为空
       now,
       now
     );

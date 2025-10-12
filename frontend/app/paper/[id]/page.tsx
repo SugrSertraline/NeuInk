@@ -46,6 +46,7 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   
+  
   // 清单相关状态
   const [paperChecklists, setPaperChecklists] = useState<ChecklistNode[]>([]);
 
@@ -312,6 +313,8 @@ const handleBlockQuickEdit = async (updatedBlock: BlockContent, sectionId: strin
   // 保存到服务器
   await handleContentUpdate(updatedContent);
 };
+
+
   // 搜索导航
   const navigateSearch = (direction: 'next' | 'prev') => {
     if (searchResults.length === 0) return;

@@ -1,6 +1,6 @@
 // app/lib/paperApi.ts
 import { PaperContent } from '../types/paper';
-import { apiGetData, apiPost, apiPut, apiDelete } from './api';
+import { apiGetData, apiPost, apiPut, apiDelete, apiGetBlob } from './api';
 import type {
   PaperMetadata,
   PaperRecord
@@ -37,7 +37,8 @@ const routes = {
   import: '/api/papers/import',
   export: '/api/papers/export',
   stats: '/api/papers/stats',
-  pdf: (id: string) => `/api/papers/${id}/pdf`
+  pdf: (id: string) => `/api/papers/${id}/pdf`,
+  parseStatus: (id: string) => `/api/papers/${id}/parse-status`,
 };
 
 // ============ 论文基础操作 ============
@@ -196,41 +197,32 @@ export async function searchPapers(
   return response.papers;
 }
 
-// ============ 文件操作 ============
-
 /**
- * 上传论文 PDF
+ * 获取论文解析状态
  */
-export async function uploadPaperPDF(
-  paperId: string,
-  file: File
-): Promise<{ pdfPath: string }> {
-  const formData = new FormData();
-  formData.append('pdf', file);
-  
-  return apiPost<{ pdfPath: string }>(
-    routes.pdf(paperId),
-    formData
-  );
+export async function getPaperParseStatus(paperId: string): Promise<{
+  parseStatus: string;
+  job?: {
+    id: string;
+    status: string;
+    error?: string;
+    createdAt: string;
+    startedAt?: string;
+    completedAt?: string;
+  };
+}> {
+  return apiGetData<any>(routes.parseStatus(paperId));
 }
-
 /**
  * 导出论文数据
  */
-export async function exportPapers(
-  paperIds?: string[]
-): Promise<Blob> {
-  const queryString = paperIds?.length
-    ? `?ids=${paperIds.join(',')}`
-    : '';
+
+export async function exportPapers(paperIds?: string[]): Promise<Blob> {
+  const queryString = paperIds?.length ? `?ids=${paperIds.join(',')}` : '';
+  const path = `${routes.export}${queryString}`;
   
-  const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3001'}${routes.export}${queryString}`);
-  
-  if (!response.ok) {
-    throw new Error('导出失败');
-  }
-  
-  return response.blob();
+  // ✅ 使用封装好的 apiGetBlob
+  return apiGetBlob(path);
 }
 
 // ============ 统计信息 ============

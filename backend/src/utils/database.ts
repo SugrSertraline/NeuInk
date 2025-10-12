@@ -73,6 +73,8 @@ async function initializeTables() {
       reading_position REAL DEFAULT 0,
       total_reading_time INTEGER DEFAULT 0,
       last_read_time TEXT,
+      parse_status TEXT DEFAULT 'pending',
+      pdf_path TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -99,6 +101,8 @@ async function initializeTables() {
     { name: 'reading_position',   type: 'REAL DEFAULT 0' },
     { name: 'total_reading_time', type: 'INTEGER DEFAULT 0' },
     { name: 'last_read_time',     type: 'TEXT' },
+    { name: 'parse_status',       type: "TEXT DEFAULT 'pending'" },
+    { name: 'pdf_path',           type: 'TEXT' },
     { name: 'created_at',         type: 'TEXT' },
     { name: 'updated_at',         type: 'TEXT' },
   ]);

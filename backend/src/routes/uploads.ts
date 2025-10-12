@@ -46,6 +46,76 @@ const upload = multer({
   }
 });
 
+// 配置PDF文件存储
+const pdfStorage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    const paperId = req.params.paperId || 'temp';
+    const uploadDir = path.join(__dirname, '../../data/uploads/pdfs', paperId);
+    
+    // 确保目录存在
+    await fs.mkdir(uploadDir, { recursive: true });
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = generateUniqueFilename(file.originalname);
+    cb(null, uniqueName);
+  }
+});
+
+const pdfUpload = multer({
+  storage: pdfStorage,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB限制
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /pdf/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (extname && mimetype) {
+      cb(null, true);
+    } else {
+      cb(new Error('只支持PDF格式文件'));
+    }
+  }
+});
+
+// 上传PDF
+router.post('/:paperId/pdf', pdfUpload.single('pdf'), async (req: Request, res: Response) => {
+  try {
+    // 添加参数验证
+    if (!req.params.paperId) {
+      return res.status(400).json({
+        success: false,
+        error: 'paperId 参数缺失'
+      });
+    }
+    
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: '未上传文件'
+      });
+    }
+
+    const pdfPath = `/api/uploads/pdfs/${req.params.paperId}/${req.file.filename}`;
+    
+    res.json({
+      success: true,
+      data: {
+        pdfPath,
+        filename: req.file.filename,
+        originalname: req.file.originalname,
+        size: req.file.size
+      }
+    });
+  } catch (error) {
+    console.error('上传PDF失败:', error);
+    res.status(500).json({
+      success: false,
+      error: '上传失败'
+    });
+  }
+});
+
 // 上传图片
 router.post('/:paperId/images', upload.single('image'), async (req: Request, res: Response) => {
   try {
@@ -128,5 +198,19 @@ router.delete('/images/:paperId/:filename', async (req: Request, res: Response) 
   }
 });
 
+// 获取PDF
+router.get('/pdfs/:paperId/:filename', async (req: Request, res: Response) => {
+  try {
+    const { paperId, filename } = req.params;
+    const pdfPath = path.join(__dirname, '../../data/uploads/pdfs', paperId, filename);
+    
+    // 检查文件是否存在
+    await fs.access(pdfPath);
+    
+    res.sendFile(pdfPath);
+  } catch (error) {
+    res.status(404).json({ error: 'PDF文件不存在' });
+  }
+});
 
 export default router;

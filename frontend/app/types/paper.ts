@@ -1,6 +1,6 @@
 // frontend/app/types/paper.ts
 
-import { ChecklistNote, PaperMetadata } from "@neuink/shared";
+import { ChecklistNote, PaperMetadata, ParseStatus } from "@neuink/shared";
 
 // ============= 基础类型 =============
 
@@ -285,12 +285,15 @@ export interface BlockNote {
 
 /** 完整论文数据（JSON文件格式） */
 export interface PaperContent {
-  metadata: PaperMetadata;
+  metadata: PaperMetadata & {
+    parseStatus?: ParseStatus;
+    pdfPath?: string;
+  };
   abstract?: {                    // 🆕 新增
     en?: string;
     zh?: string;
   };
-  keywords?: string[];       
+  keywords?: string[];
   sections: Section[];
   references: Reference[];
   blockNotes: BlockNote[];

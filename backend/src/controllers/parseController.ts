@@ -11,6 +11,50 @@ import { recordToMetadata, metadataToRecord } from '../utils/paperMapper';
 import { pdfParseService } from '../services/pdfParseService';
 
 /**
+ * 🧹 清理临时文件
+ */
+async function cleanupTempFile(filePath: string) {
+  try {
+    await fs.unlink(filePath);
+    console.log(`🧹 [文件清理] 临时文件已删除: ${filePath}`);
+  } catch (error) {
+    console.error(`⚠️ [文件清理] 删除失败: ${filePath}`, error);
+  }
+}
+
+/**
+ * 📁 处理PDF文件上传（带错误清理）
+ */
+async function handlePdfUpload(
+  req: Request, 
+  paperId: string
+): Promise<string | undefined> {
+  if (!req.file) return undefined;
+
+  console.log(`📤 [PDF上传] 开始处理文件: ${req.file.originalname}`);
+  console.log(`   临时路径: ${req.file.path}`);
+  console.log(`   文件大小: ${(req.file.size / 1024 / 1024).toFixed(2)} MB`);
+
+  const uploadsDir = path.join(__dirname, '../../data/uploads');
+  await fs.mkdir(uploadsDir, { recursive: true });
+  
+  const pdfFileName = `${paperId}.pdf`;
+  const pdfPath = path.join(uploadsDir, pdfFileName);
+  
+  try {
+    // 移动上传的文件到永久位置
+    await fs.rename(req.file.path, pdfPath);
+    console.log(`✅ [PDF上传] 文件已保存: ${pdfPath}`);
+    return pdfPath;
+  } catch (error) {
+    // ⚠️ 如果移动失败，清理临时文件
+    console.error(`❌ [PDF上传] 文件移动失败:`, error);
+    await cleanupTempFile(req.file.path);
+    throw new Error(`PDF文件保存失败: ${error instanceof Error ? error.message : '未知错误'}`);
+  }
+}
+
+/**
  * 获取所有论文列表 - 支持多级排序
  */
 export async function getAllPapers(req: Request, res: Response) {
@@ -97,44 +141,54 @@ export async function getPaperById(req: Request, res: Response) {
 }
 
 /**
- * 创建新论文（支持PDF上传）
+ * ✨ 创建新论文（支持PDF上传）
  */
 export async function createPaper(req: Request, res: Response) {
+  let tempFilePath: string | undefined;
+  
   try {
     const paperData = req.body;
     const id = randomUUID();
     
-    // 处理PDF文件上传（如果有）
-    let pdfPath: string | undefined;
+    // 记录临时文件路径（用于错误时清理）
     if (req.file) {
-      const uploadsDir = path.join(__dirname, '../../data/uploads');
-      await fs.mkdir(uploadsDir, { recursive: true });
-      
-      const pdfFileName = `${id}.pdf`;
-      pdfPath = path.join(uploadsDir, pdfFileName);
-      
-      // 移动上传的文件到永久位置
-      await fs.rename(req.file.path, pdfPath);
+      tempFilePath = req.file.path;
+    }
+
+    console.log(`\n📝 [创建论文] 开始创建论文`);
+    console.log(`   论文ID: ${id}`);
+    console.log(`   标题: ${paperData.title}`);
+    
+    // 🔹 处理PDF文件上传（如果有）
+    let pdfPath: string | undefined;
+    try {
+      pdfPath = await handlePdfUpload(req, id);
+    } catch (uploadError) {
+      // PDF上传失败，但不影响论文创建（仅记录错误）
+      console.error(`⚠️ [创建论文] PDF上传失败，将创建不含PDF的论文`, uploadError);
     }
     
-    // 创建论文记录
+    // 🔹 创建论文记录到数据库
     const paper = await Paper.create({
       id,
       readingStatus: 'unread',
       readingPosition: 0,
       totalReadingTime: 0,
-      parseStatus: pdfPath ? 'pending' : 'completed', // 如果有PDF则设置为待解析
+      parseStatus: pdfPath ? 'pending' : 'completed',
       pdfPath: pdfPath,
       ...paperData
     });
 
-    // 如果有PDF文件，启动异步解析
+    console.log(`✅ [创建论文] 论文记录已创建`);
+
+    // 🔹 如果有PDF文件，启动异步解析任务
     if (pdfPath) {
       try {
         await pdfParseService.createParseJob(id, pdfPath);
       } catch (parseError) {
-        console.error('创建PDF解析任务失败:', parseError);
-        // 不影响论文创建，只记录错误
+        console.error(`⚠️ [创建论文] PDF解析任务创建失败:`, parseError);
+        // 不影响论文创建，只更新状态
+        await Paper.update(id, { parseStatus: 'failed' });
       }
     }
 
@@ -143,21 +197,29 @@ export async function createPaper(req: Request, res: Response) {
       data: paper
     });
   } catch (error) {
-    console.error('创建论文失败:', error);
+    console.error(`❌ [创建论文] 创建失败:`, error);
+    
+    // 🧹 清理临时文件
+    if (tempFilePath) {
+      await cleanupTempFile(tempFilePath);
+    }
+    
     res.status(500).json({
       success: false,
-      error: '创建论文失败'
+      error: error instanceof Error ? error.message : '创建论文失败'
     });
   }
 }
 
 /**
- * 更新论文
+ * 更新论文（不支持PDF上传）
  */
 export async function updatePaper(req: Request, res: Response) {
   try {
     const { id } = req.params;
     const paperData = req.body;
+    
+    console.log(`\n✏️ [更新论文] 论文ID: ${id}`);
     
     const paper = await Paper.update(id, paperData);
     
@@ -168,12 +230,14 @@ export async function updatePaper(req: Request, res: Response) {
       });
     }
 
+    console.log(`✅ [更新论文] 更新成功`);
+
     res.json({
       success: true,
       data: paper
     });
   } catch (error) {
-    console.error('更新论文失败:', error);
+    console.error(`❌ [更新论文] 更新失败:`, error);
     res.status(500).json({
       success: false,
       error: '更新论文失败'
@@ -187,6 +251,12 @@ export async function updatePaper(req: Request, res: Response) {
 export async function deletePaper(req: Request, res: Response) {
   try {
     const { id } = req.params;
+    
+    console.log(`\n🗑️ [删除论文] 论文ID: ${id}`);
+    
+    // 获取论文信息（用于删除关联文件）
+    const paper = await Paper.findById(id);
+    
     const success = await Paper.delete(id);
     
     if (!success) {
@@ -196,19 +266,33 @@ export async function deletePaper(req: Request, res: Response) {
       });
     }
 
+    // 🧹 删除JSON内容文件
     const jsonPath = path.join(__dirname, '../../data/papers', `${id}.json`);
     try {
       await fs.unlink(jsonPath);
+      console.log(`🧹 [删除论文] JSON文件已删除`);
     } catch (err) {
-      console.log('JSON文件不存在或已删除');
+      console.log(`⚠️ [删除论文] JSON文件不存在或已删除`);
     }
+
+    // 🧹 删除PDF文件（如果有）
+    if (paper?.pdfPath) {
+      try {
+        await fs.unlink(paper.pdfPath);
+        console.log(`🧹 [删除论文] PDF文件已删除: ${paper.pdfPath}`);
+      } catch (err) {
+        console.log(`⚠️ [删除论文] PDF文件不存在或已删除`);
+      }
+    }
+
+    console.log(`✅ [删除论文] 删除成功`);
 
     res.json({
       success: true,
       message: '删除成功'
     });
   } catch (error) {
-    console.error('删除论文失败:', error);
+    console.error(`❌ [删除论文] 删除失败:`, error);
     res.status(500).json({
       success: false,
       error: '删除论文失败'
@@ -238,7 +322,7 @@ export async function getPaperContent(req: Request, res: Response) {
       const content = await fs.readFile(jsonPath, 'utf-8');
       contentData = JSON.parse(content);
     } catch (error) {
-      console.log(`JSON文件不存在，为论文 ${id} 创建默认内容`);
+      console.log(`⚠️ [获取内容] JSON文件不存在，为论文 ${id} 创建默认内容`);
       
       contentData = {
         abstract: undefined,      
@@ -326,7 +410,6 @@ export async function getPaperChecklists(req: Request, res: Response) {
   try {
     const { id } = req.params;
     
-    // 验证论文存在
     const paper = await Paper.findById(id);
     if (!paper) {
       return res.status(404).json({
@@ -335,10 +418,8 @@ export async function getPaperChecklists(req: Request, res: Response) {
       });
     }
 
-    // 获取论文所在的清单ID列表
     const checklistIds = await PaperChecklist.findChecklistIdsByPaperId(id);
     
-    // 获取每个清单的详细信息
     const checklists = [];
     for (const checklistId of checklistIds) {
       const checklist = await Checklist.findById(checklistId);
@@ -384,6 +465,7 @@ export async function getPaperParseStatus(req: Request, res: Response) {
         job: job ? {
           id: job.id,
           status: job.status,
+          progress: job.progress,
           error: job.error,
           createdAt: job.createdAt,
           startedAt: job.startedAt,
@@ -399,4 +481,3 @@ export async function getPaperParseStatus(req: Request, res: Response) {
     });
   }
 }
-

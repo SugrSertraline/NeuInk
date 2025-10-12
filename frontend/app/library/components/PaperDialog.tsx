@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { X, Plus, Loader2, Save, FileCheck, Star, Trash2, UserPlus } from 'lucide-react';
+import { X, Plus, Loader2, Save, FileCheck, Star, Trash2, UserPlus, Upload, FileText } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -40,6 +40,10 @@ export default function PaperDialog({ open, mode, paper, onClose, onSuccess }: P
   const [remarks, setRemarks] = React.useState('');
   const [tagInput, setTagInput] = React.useState('');
   const [tags, setTags] = React.useState<string[]>([]);
+  
+  // PDF上传相关状态
+  const [pdfFile, setPdfFile] = React.useState<File | null>(null);
+  const [pdfUploadError, setPdfUploadError] = React.useState<string | null>(null);
   
   // 编辑模式专用字段
   const [readingStatus, setReadingStatus] = React.useState('unread');
@@ -103,6 +107,8 @@ export default function PaperDialog({ open, mode, paper, onClose, onSuccess }: P
     setTags([]);
     setReadingStatus('unread');
     setRating(0);
+    setPdfFile(null);
+    setPdfUploadError(null);
   };
 
   const scrollToField = (fieldId: string) => {
@@ -143,6 +149,31 @@ export default function PaperDialog({ open, mode, paper, onClose, onSuccess }: P
     setTags(tags.filter(t => t !== tag));
   };
 
+  const handlePDFChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.type !== 'application/pdf') {
+        setPdfUploadError('只支持PDF文件');
+        setPdfFile(null);
+        return;
+      }
+      
+      if (file.size > 50 * 1024 * 1024) { // 50MB
+        setPdfUploadError('文件大小不能超过50MB');
+        setPdfFile(null);
+        return;
+      }
+      
+      setPdfFile(file);
+      setPdfUploadError(null);
+    }
+  };
+
+  const removePDF = () => {
+    setPdfFile(null);
+    setPdfUploadError(null);
+  };
+
   const handleSubmit = async () => {
     if (!title.trim()) {
       setError('请输入论文标题');
@@ -163,35 +194,43 @@ export default function PaperDialog({ open, mode, paper, onClose, onSuccess }: P
     setError(null);
 
     try {
-      const paperData: any = {
-        title: title.trim(),
-        shortTitle: shortTitle.trim() || undefined,
-        authors: JSON.stringify(validAuthors),
-        publication: publication.trim() || undefined,
-        year: year ? parseInt(year) : undefined,
-        doi: doi.trim() || undefined,
-        articleType: articleType || undefined,
-        sciQuartile: sciQuartile !== '无' ? sciQuartile : undefined,
-        casQuartile: casQuartile !== '无' ? casQuartile : undefined,
-        ccfRank: ccfRank !== '无' ? ccfRank : undefined,
-        impactFactor: impactFactor ? parseFloat(impactFactor) : undefined,
-        tags: tags.length > 0 ? JSON.stringify(tags) : undefined,
-        priority: priority,
-        remarks: remarks.trim() || undefined,
-      };
+      const formData = new FormData();
+      
+      // 添加基本表单数据
+      formData.append('title', title.trim());
+      if (shortTitle.trim()) formData.append('shortTitle', shortTitle.trim());
+      if (validAuthors.length > 0) formData.append('authors', JSON.stringify(validAuthors));
+      if (publication.trim()) formData.append('publication', publication.trim());
+      if (year) formData.append('year', year);
+      if (doi.trim()) formData.append('doi', doi.trim());
+      if (articleType) formData.append('articleType', articleType);
+      if (sciQuartile !== '无') formData.append('sciQuartile', sciQuartile);
+      if (casQuartile !== '无') formData.append('casQuartile', casQuartile);
+      if (ccfRank !== '无') formData.append('ccfRank', ccfRank);
+      if (impactFactor) formData.append('impactFactor', impactFactor);
+      if (tags.length > 0) formData.append('tags', JSON.stringify(tags));
+      if (priority) formData.append('priority', priority);
+      if (remarks.trim()) formData.append('remarks', remarks.trim());
+      
+      // 添加PDF文件（如果有）
+      if (pdfFile) {
+        formData.append('pdf', pdfFile);
+      }
+      
+      // 编辑模式特有字段
+      if (mode === 'edit') {
+        formData.append('readingStatus', readingStatus);
+        if (rating > 0) formData.append('rating', String(rating));
+      }
 
       let result: any;
       let paperId: string | undefined;
 
       if (mode === 'create') {
-        result = await apiPost<any>('/api/papers', paperData);
+        result = await apiPost<any>('/api/papers', formData);
         paperId = result?.id;
       } else {
-        result = await apiPut<any>(`/api/papers/${paper.id}`, {
-          ...paperData,
-          readingStatus: readingStatus,
-          rating: rating > 0 ? rating : undefined,
-        });
+        result = await apiPut<any>(`/api/papers/${paper.id}`, formData);
       }
 
       resetForm();
@@ -581,6 +620,77 @@ export default function PaperDialog({ open, mode, paper, onClose, onSuccess }: P
                     )}
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* PDF上传 */}
+          {mode === 'create' && (
+            <div className="space-y-5">
+              <div className="flex items-center gap-2 border-b pb-3">
+                <div className="w-1 h-5 bg-orange-500 rounded-full"></div>
+                <h3 className="font-semibold text-lg text-slate-700 dark:text-slate-200">PDF上传（可选）</h3>
+              </div>
+              
+              <div>
+                <div className="text-sm text-slate-600 dark:text-slate-400 mb-3">
+                  上传PDF文件将自动解析论文内容，包括标题、摘要、章节等
+                </div>
+                
+                {!pdfFile ? (
+                  <div className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg p-6">
+                    <div className="text-center">
+                      <FileText className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
+                        点击或拖拽上传PDF文件
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-500 mb-4">
+                        支持格式：PDF，最大50MB
+                      </p>
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          onChange={handlePDFChange}
+                          className="hidden"
+                        />
+                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                          <Upload className="w-4 h-4" />
+                          <span className="text-sm font-medium">选择PDF文件</span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <FileText className="w-8 h-8 text-blue-600" />
+                        <div>
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                            {pdfFile.name}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-500">
+                            {(pdfFile.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={removePDF}
+                        className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {pdfUploadError && (
+                  <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-400 rounded-r-lg text-sm">
+                    {pdfUploadError}
+                  </div>
+                )}
               </div>
             </div>
           )}

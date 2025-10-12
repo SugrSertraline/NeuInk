@@ -1,14 +1,12 @@
-// backend/src/routes/papers.ts
-
+// backend/src/routes/parse.ts
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
-import * as paperController from '../controllers/paperController';
+import * as parseController from '../controllers/parseController';
 
 const router = express.Router();
 
-// 配置PDF上传
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
     const tempDir = path.join(__dirname, '../../data/temp');
@@ -33,21 +31,7 @@ const upload = multer({
   }
 });
 
-// 论文CRUD路由
-router.get('/', paperController.getAllPapers);
-router.get('/:id', paperController.getPaperById);
-router.post('/', upload.single('pdf'), paperController.createPaper);
-router.put('/:id', paperController.updatePaper);
-router.delete('/:id', paperController.deletePaper);
-
-// 论文内容路由
-router.get('/:id/content', paperController.getPaperContent);
-router.put('/:id/content', paperController.savePaperContent);
-
-// 🆕 论文清单关联路由
-router.get('/:id/checklists', paperController.getPaperChecklists);
-
-// 🆕 论文解析状态路由
-router.get('/:id/parse-status', paperController.getPaperParseStatus);
+// 🆕 通用PDF解析接口
+router.post('/pdf', upload.single('pdf'), parseController.parsePDF);
 
 export default router;
