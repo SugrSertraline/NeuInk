@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "cross-env NODE_ENV=development electron .",
     "build": "electron-builder",
+    "build:all": "npm run build:frontend && npm run build:backend && npm run build",
+    "build:frontend": "cd ../frontend && npm run build",
+    "build:backend": "cd ../backend && npm run build",
     "start": "electron ."
   },
   "dependencies": {
@@ -33,20 +36,32 @@
     "extraResources": [
       {
         "from": "../backend/dist",
-        "to": "backend"
+        "to": "backend",
+        "filter": ["**/*"]
       },
       {
         "from": "../backend/data",
-        "to": "data"
+        "to": "data",
+        "filter": ["**/*"]
       },
       {
         "from": "../frontend/out",
-        "to": "frontend"
+        "to": "frontend",
+        "filter": ["**/*"]
       }
     ],
     "win": {
-      "target": "nsis",
+      "target": [{
+        "target": "nsis",
+        "arch": ["x64"]
+      }],
       "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     }
   }
 }

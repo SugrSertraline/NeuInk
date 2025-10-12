@@ -12,10 +12,9 @@ function startApiProxyServer() {
   
   console.log('启动API代理服务器...');
   
-  // 在生产环境中，我们需要使用Node.js运行API代理
-  // 在开发环境中，我们假设开发服务器已经运行
   if (!isDev) {
-    apiProxyProcess = spawn('node', [path.join(__dirname, 'api-proxy.js')], {
+    const apiProxyPath = path.join(__dirname, 'api-proxy.js');
+    apiProxyProcess = spawn('node', [apiProxyPath], {
       stdio: 'pipe',
       env: {
         ...process.env,
@@ -43,14 +42,16 @@ function startBackendServer() {
   
   console.log('启动后端服务器...');
   
-  // 在生产环境中，我们需要启动后端服务器
   if (!isDev) {
-    const backendPath = path.join(__dirname, '..', 'backend', 'dist', 'index.js');
+    // 生产环境：后端在 resources 目录下
+    const backendPath = path.join(process.resourcesPath, 'backend', 'index.js');
     backendProcess = spawn('node', [backendPath], {
       stdio: 'pipe',
       env: {
         ...process.env,
-        NODE_ENV: 'production'
+        NODE_ENV: 'production',
+        // 设置数据目录路径
+        DATA_DIR: path.join(process.resourcesPath, 'data')
       }
     });
     
@@ -79,20 +80,20 @@ function createWindow() {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js')
     },
-    frame: false, // 完全隐藏原生标题栏和边框
+    frame: false,
     transparent: false,
     autoHideMenuBar: true,
     show: false,
     backgroundColor: '#ffffff',
   });
 
-  // 开发环境加载Next.js dev server
   const isDev = process.env.NODE_ENV === 'development';
   
   if (isDev) {
+    // 开发环境：加载 Next.js dev server
     mainWindow.loadURL('http://localhost:3000');
   } else {
-    // 生产环境加载API代理服务器
+    // 生产环境：加载 API 代理服务器（它会提供静态文件）
     mainWindow.loadURL('http://localhost:3000');
   }
 
@@ -140,7 +141,6 @@ function createWindow() {
       window.getSelection()?.removeAllRanges();
       
       document.addEventListener('dblclick', function(e) {
-        // 扩展可编辑元素的检测范围
         if (!e.target.matches('input, textarea, [contenteditable="true"], .prose, .prose *, ' +
                            '.CodeMirror, .CodeMirror *, .editor-toolbar, .editor-toolbar *, ' +
                            '.EasyMDEContainer, .EasyMDEContainer *, .cm-editor, .cm-editor *, ' +
@@ -152,7 +152,6 @@ function createWindow() {
       });
       
       document.addEventListener('selectstart', function(e) {
-        // 扩展可编辑元素的检测范围
         if (!e.target.matches('input, textarea, [contenteditable="true"], .prose, .prose *, ' +
                            '.CodeMirror, .CodeMirror *, .editor-toolbar, .editor-toolbar *, ' +
                            '.EasyMDEContainer, .EasyMDEContainer *, .cm-editor, .cm-editor *, ' +
@@ -163,7 +162,6 @@ function createWindow() {
       });
       
       document.addEventListener('contextmenu', function(e) {
-        // 扩展可编辑元素的检测范围
         if (!e.target.matches('input, textarea, [contenteditable="true"], .prose, .prose *, ' +
                            '.CodeMirror, .CodeMirror *, .editor-toolbar, .editor-toolbar *, ' +
                            '.EasyMDEContainer, .EasyMDEContainer *, .cm-editor, .cm-editor *, ' +
@@ -246,10 +244,15 @@ app.whenReady().then(() => {
   // 先启动后端服务
   startBackendServer();
   
-  // 等待一段时间让后端服务启动
+  // 再启动API代理（提供前端静态文件和API转发）
+  setTimeout(() => {
+    startApiProxyServer();
+  }, 1500);
+  
+  // 等待服务启动后创建窗口
   setTimeout(() => {
     createWindow();
-  }, 2000);
+  }, 3000);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -259,7 +262,12 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  // 关闭后端进程
+  // 关闭所有进程
+  if (apiProxyProcess) {
+    apiProxyProcess.kill();
+    apiProxyProcess = null;
+  }
+  
   if (backendProcess) {
     backendProcess.kill();
     backendProcess = null;
@@ -271,7 +279,12 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
-  // 应用退出前关闭后端进程
+  // 应用退出前关闭所有进程
+  if (apiProxyProcess) {
+    apiProxyProcess.kill();
+    apiProxyProcess = null;
+  }
+  
   if (backendProcess) {
     backendProcess.kill();
     backendProcess = null;

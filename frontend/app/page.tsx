@@ -3,7 +3,7 @@
 import React from 'react';
 import { useSettingsStore } from '@/app/store/useSettingsStore';
 import { TrendingUp, BookOpen, Clock, Target } from 'lucide-react';
-import { cn } from '@/app/lib/utils';
+import { cn } from '@/lib/utils';
 
 export default function DashboardPage() {
   const { theme, fontSize } = useSettingsStore();

@@ -11,10 +11,10 @@ import {
 import { usePathname, useRouter } from 'next/navigation';
 import { useTabStore } from '@/app/store/useTabStore';
 import { useChecklistStore } from '@/app/store/useChecklistStore';
-import { cn } from '@/app/lib/utils';
 import type { TabType } from '@/app/store/useTabStore';
 
 import ChecklistTreeSidebar from './ChecklistTreeSidebar';
+import { cn } from '@/lib/utils';
 
 export default function Sidebar() {
   const router = useRouter();

@@ -4,7 +4,7 @@ import React from 'react';
 import { ChevronRight, FileText, Loader2 } from 'lucide-react';
 import { useChecklistStore } from '@/app/store/useChecklistStore';
 import { useTabStore } from '@/app/store/useTabStore';
-import { cn } from '@/app/lib/utils';
+import { cn } from '@/lib/utils';
 import type { ChecklistNode } from '@/app/types/checklist';
 
 interface ChecklistTreeSidebarProps {

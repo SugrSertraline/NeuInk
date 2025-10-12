@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Home, Library, FolderTree, Settings, FileText, Loader2, Minus, Square, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTabStore, Tab } from '@/app/store/useTabStore';
-import { cn } from '@/app/lib/utils';
+import { cn } from '@/lib/utils';
 
 const iconMap: Record<Tab['type'], React.ReactNode> = {
   dashboard: <Home className="w-5 h-5 transition-all duration-300" />,
