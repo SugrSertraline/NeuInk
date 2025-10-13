@@ -5,7 +5,7 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { apiGetData, apiDelete } from '../lib/api';
-import type { PaperMetadata, PaperRecord } from '@neuink/shared';
+import type { PaperMetadata, PaperRecord } from '@/app/types/paper';
 import { useTabStore } from '../store/useTabStore';
 import { TABLE_COLUMNS } from './utils/paperHelpers';
 import { paperRecordsToMetadata } from '@/app/lib/paperConverters';

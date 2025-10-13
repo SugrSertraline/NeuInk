@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { Eye, Edit, Trash2, FolderPlus } from 'lucide-react';
-import type { PaperMetadata } from '@neuink/shared';
+import type { PaperMetadata } from '@/app/types/paper';
 import {
   ContextMenu as ShadcnContextMenu,
   ContextMenuContent,

@@ -1,6 +1,6 @@
 // library/utils/paperConverters.ts
 
-import type { PaperRecord, PaperMetadata, Author } from '@neuink/shared';
+import type { PaperRecord, PaperMetadata, Author } from '../types/paper';
 
 /**
  * 安全解析 JSON 字符串

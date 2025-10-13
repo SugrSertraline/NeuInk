@@ -27,8 +27,8 @@ import 'easymde/dist/easymde.min.css';
 import 'highlight.js/styles/github.css';
 import { fetchChecklistNode, fetchChecklistPapers, fetchChecklistTree } from '@/app/lib/checklistApi';
 import { fetchPaperContent, savePaperContent } from '@/app/lib/paperApi';
-import type { ChecklistNode } from '@neuink/shared';
-import type { PaperMetadata, ChecklistNote } from '@neuink/shared';
+import type { ChecklistNode, ChecklistNote } from '@/app/types/checklist';
+import type { PaperMetadata } from '@/app/types/paper';
 import { PaperContent } from '@/app/types/paper';
 import { useTabStore } from '@/app/store/useTabStore';
 

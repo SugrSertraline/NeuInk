@@ -1,7 +1,7 @@
 // backend/src/models/PaperChecklist.ts
 
 import { getDatabase } from '../utils/database';
-import type { PaperChecklistRecord } from '@neuink/shared';
+import type { PaperChecklistRecord } from '../types/checklist';
 
 export class PaperChecklist {
   /** 添加论文到清单 */

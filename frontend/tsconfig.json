@@ -31,9 +31,6 @@
       "@/types/*": [
         "./app/types/*"
       ],
-      "@neuink/shared": [
-        "../shared/types/index.ts"
-      ]
     }
   },
   "include": [

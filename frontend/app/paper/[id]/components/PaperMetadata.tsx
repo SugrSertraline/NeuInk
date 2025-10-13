@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import type { PaperMetadata } from '@neuink/shared';
+import type { PaperMetadata } from '@/app/types/paper';
 import { Calendar, Users, FileText, Award, Star } from 'lucide-react';
 import { PaperContent } from '@/app/types/paper';
 

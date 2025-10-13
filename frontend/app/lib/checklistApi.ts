@@ -1,7 +1,7 @@
 // app/lib/checklistApi.ts
 import { apiGetData, apiPost, apiPut, apiDelete } from '@/app/lib/api';
 import type { ChecklistTree, ChecklistNode } from '@/app/types/checklist';
-import type { PaperRecord as ApiPaperRecord } from '@neuink/shared';
+import type { PaperRecord as ApiPaperRecord } from '@/app/types/paper';
 
 export interface PagedResult<T> {
   items: T[];

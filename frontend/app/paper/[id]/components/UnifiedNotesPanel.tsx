@@ -10,7 +10,7 @@ import rehypeRaw from 'rehype-raw';
 import 'easymde/dist/easymde.min.css';
 import 'highlight.js/styles/github.css';
 import type { BlockNote, ChecklistNote, PaperContent } from '../../../types/paper';
-import type { ChecklistNode } from '@neuink/shared';
+import type { ChecklistNode } from '@/app/types/checklist';
 
 const SimpleMDE = dynamic(() => import('react-simplemde-editor'), {
   ssr: false,

@@ -1,7 +1,7 @@
 // library/utils/paperHelpers.tsx
 
 import { Badge } from '@/components/ui/badge';
-import type { ReadingStatus, Priority, ArticleType, SciQuartile, CasQuartile, CcfRank } from '@neuink/shared';
+import type { ReadingStatus, Priority, ArticleType, SciQuartile, CasQuartile, CcfRank } from '@/app/types/paper';
 
 /**
  * 获取阅读状态徽章

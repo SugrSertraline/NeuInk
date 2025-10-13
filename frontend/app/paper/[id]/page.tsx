@@ -9,7 +9,7 @@ import PaperContentComponent from './components/PaperContent';
 import EditablePaperContent from './components/editor/EditablePaperContent';
 import UnifiedNotesPanel from './components/UnifiedNotesPanel';
 import { X } from 'lucide-react';
-import { ChecklistNode } from '@neuink/shared';
+import { ChecklistNode } from '@/app/types/checklist';
 import { fetchPaperChecklists } from '@/app/lib/checklistApi';
 import { calculateAllNumbers, stripAllNumbers } from './utils/autoNumbering';
 import { fetchPapers } from '@/app/lib/paperApi';

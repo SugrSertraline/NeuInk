@@ -1,10 +1,6 @@
 // app/lib/paperApi.ts
-import { PaperContent } from '../types/paper';
+import { PaperContent, PaperMetadata, PaperRecord } from '../types/paper';
 import { apiGetData, apiPost, apiPut, apiDelete, apiGetBlob } from './api';
-import type {
-  PaperMetadata,
-  PaperRecord
-} from '@neuink/shared';
 
 /** 分页响应类型 */
 interface PaginatedResponse<T> {

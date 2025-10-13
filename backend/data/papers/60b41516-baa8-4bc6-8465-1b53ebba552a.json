@@ -1,0 +1,100 @@
+{
+  "abstract": {
+    "en": "Accurately forecasting the impact of macroeconomic events is critical for investors and policymakers. Salient events like monetary policy decisions and employment reports often trigger market movements by shaping expectations of economic growth and risk, thereby establishing causal relationships between events and market behavior. Existing forecasting methods typically focus either on textual analysis or time-series modeling, but fail to capture the multi-modal nature of financial markets and the causal relationship between events and price movements. To address these gaps, we propose CAMEF (Causal-Augmented Multi-Modality Event-Driven Financial Forecasting), a multi-modality framework that effectively integrates textual and time-series data with a causal learning mechanism and an LLM-based counterfactual event augmentation technique for causal-enhanced financial forecasting. Our contributions include: (1) a multi-modal framework that captures causal relationships between policy texts and historical price data; (2) a new financial dataset with six types of macroeconomic releases from 2008 to April 2024, and high-frequency real trading data for five key U.S. financial assets; and (3) an LLM-based counterfactual event augmentation strategy. We compare CAMEF to state-of-the-art transformer-based time-series and multi-modal baselines, and perform ablation studies to validate the effectiveness of the causal learning mechanism and event types.",
+    "zh": "准确预测宏观经济事件的影响对投资者和政策制定者至关重要。突出事件如货币政策决策和就业报告通常通过塑造经济增长和风险的预期来引发市场波动，从而建立事件与市场行为之间的因果关系。现有的预测方法通常侧重于文本分析或时间序列建模，但未能捕捉金融市场的多模态性质以及事件与价格变动之间的因果关系。为解决这些不足，我们提出了CAMEF（因果增强多模态事件驱动金融预测），这是一个多模态框架，有效整合文本和时间序列数据，采用因果学习机制和基于LLM的反事实事件增强技术，用于因果增强的金融预测。我们的贡献包括：（1）一个捕捉政策文本与历史价格数据之间因果关系的多模态框架；（2）一个新的金融数据集，包含2008年至2024年4月的六种宏观经济发布类型，以及五种关键美国金融资产的高频真实交易数据；（3）一种基于LLM的反事实事件增强策略。我们将CAMEF与最先进的基于Transformer的时间序列和多模态基线进行比较，并进行消融研究以验证因果学习机制和事件类型的有效性。"
+  },
+  "keywords": [
+    "Multimodal learning",
+    "Causal Learning",
+    "Financial dataset",
+    "Time-series Forecasting"
+  ],
+  "sections": [
+    {
+      "id": "block-p1-001",
+      "title": {
+        "en": "1 Introduction",
+        "zh": "1 引言"
+      },
+      "content": [
+        {
+          "id": "block-p1-002",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "The prices of financial assets reflect all available information, according to Fama's Efficient Market Theory. Major financial releases from government sectors often trigger market movements by shaping investors' expectations and evaluations of economic conditions, asset growth potential, and associated risks. For example, during the FOMC meeting on March 16, 2020, the Fed's emergency rate cut to 0-0.25% sharply altered investors' economic outlook, resulting in a massive sell-off. Major indices, including the S&P 500, NASDAQ, and Dow Jones, dropped by over 10%, marking the steepest single-day decline since 1987. These salient macroeconomic events cause reactions in financial assets, establishing causal relationships between events and financial assets. Figure 1 illustrates multiple types of events that cause financial market reactions. Therefore, accurately forecasting the causal consequences of the salient macroeconomic releases on financial market is essential, not only to help investors manage risks and maximize returns, but also to provide policymakers with"
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "根据法玛的有效市场理论，金融资产的价格反映了所有可用信息。政府部门的重大金融发布通常通过塑造投资者对经济状况、资产增长潜力和相关风险的预期和评估来引发市场波动。例如，在2020年3月16日的FOMC会议上，美联储紧急将利率降至0-0.25%，急剧改变了投资者的经济前景，导致大规模抛售。包括标普500、纳斯达克和道琼斯在内的主要指数下跌超过10%，创下自1987年以来最大的单日跌幅。这些显著的宏观经济事件引起金融资产的反应，建立了事件与金融资产之间的因果关系。图1展示了导致金融市场反应的多种事件类型。因此，准确预测显著宏观经济发布对金融市场的因果后果至关重要，不仅有助于投资者管理风险和最大化回报，也为政策制定者提供"
+              }
+            ]
+          }
+        },
+        {
+          "id": "block-p2-001",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "valuable insights for evaluating and refining future policies. Previous studies on event-driven forecasting have primarily adopted three lines of methodologies. The first line of approaches utilizes text feature-based models, where language models, ranging from self-crafted RNN-based architectures to pre-trained transformers, embed sentiment information into text vectors, and then stock movements are predicted as a binary classification task (e.g., hawkish vs. dovish). The second line of methodology focuses on historical time-series data, treating stock price movements as a regression problem. Recently, transformer-based architectures have been applied for time-series prediction, including Informer, FedFormer, and AutoFormer, etc. However, both of these directions typically focus on a single modality, neglecting multi-dimensional information. The third line of research adopts a multi-modality approach, leveraging multiple types of data sources to enhance forecasting performance. For instance, studies like incorporate textual, video, and audio data from FOMC meetings alongside corresponding market movements. While these approaches show promise for event-driven financial forecasts, they face three major limitations:"
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "为评估和完善未来政策提供宝贵见解。先前关于事件驱动预测的研究主要采用三种方法论路线。第一种方法路线利用基于文本特征的模型，其中语言模型，从自制的基于RNN的架构到预训练的Transformer，将情感信息嵌入到文本向量中，然后将股票走势预测为二元分类任务（例如，鹰派与鸽派）。第二种方法论路线关注历史时间序列数据，将股票价格走势视为回归问题。最近，基于Transformer的架构已被应用于时间序列预测，包括Informer、FedFormer和AutoFormer等。然而，这两种方向通常都关注单一模态，忽略了多维信息。第三种研究路线采用多模态方法，利用多种类型的数据源来提升预测性能。例如，像这样的研究结合了FOMC会议的文本、视频和音频数据以及相应的市场变动。虽然这些方法在事件驱动的金融预测中显示出潜力，但它们面临三个主要局限性："
+              }
+            ]
+          }
+        },
+        {
+          "id": "block-p2-003",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "To address the limitations of previous studies, we propose a novel multi-modality framework,CAMEF (causal-Augmented Multi-ModalityEvent-Driven FinancialForecasting). CAMEF integrates time-series and textual features through specially designed multi-feature fusion techniques, time-series decoding mechanisms, and causal learning strategies. By conducting a thorough review of financial literature, we identify six types of salient macroeconomic events for the forecasting analysis. Furthermore, the framework employs causal data augmentation powered by Large Language Models (LLMs) and a causal contrastive learning approach to enhance the causal understanding and forecast accuracy of CAMEF."
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "为了解决先前研究的局限性，我们提出了一种新颖的多模态框架CAMEF（因果增强多模态事件驱动金融预测）。CAMEF通过专门设计的多特征融合技术、时间序列解码机制和因果学习策略，整合时间序列和文本特征。通过对金融文献的全面回顾，我们确定了六种类型的显著宏观经济事件用于预测分析。此外，该框架采用由大型语言模型（LLMs）驱动的因果数据增强和因果对比学习方法，以增强CAMEF的因果理解和预测准确性。"
+              }
+            ]
+          }
+        },
+        {
+          "id": "block-p2-004",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "This paper offers three key contributions:"
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "本文提供了三个关键贡献："
+              }
+            ]
+          }
+        }
+      ],
+      "subsections": []
+    }
+  ],
+  "references": [],
+  "blockNotes": [],
+  "checklistNotes": [],
+  "attachments": []
+}

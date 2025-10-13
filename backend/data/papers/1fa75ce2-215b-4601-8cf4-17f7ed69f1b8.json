@@ -32,7 +32,38 @@
               },
               {
                 "type": "text",
-                "content": "Recurrent models typically factor computation along the symbol positions of the input and output sequences. The sequential nature fundamentally limits the parallelization of training examples",
+                "content": "Recurrent m",
+                "style": {
+                  "bold": true
+                }
+              },
+              {
+                "type": "text",
+                "content": "od",
+                "style": {
+                  "color": "#ef4444",
+                  "bold": true
+                }
+              },
+              {
+                "type": "text",
+                "content": "els typically factor computation along the symbol positions of the input and out",
+                "style": {
+                  "color": "#3b82f6",
+                  "bold": true
+                }
+              },
+              {
+                "type": "text",
+                "content": "p",
+                "style": {
+                  "color": "#ef4444",
+                  "bold": true
+                }
+              },
+              {
+                "type": "text",
+                "content": "ut sequences. The sequential nature fundamentally limits the parallelization of training examples",
                 "style": {
                   "bold": true
                 }
@@ -1302,6 +1333,16 @@
       "tags": [],
       "createdAt": "2025-10-11T06:16:38.531Z",
       "updatedAt": "2025-10-11T06:16:38.531Z"
+    },
+    {
+      "id": "note-1760358281057-at1hlu4o5",
+      "blockId": "block-p1-2",
+      "content": "**是讹发生的水电费水电费 发的**瑟瑟发抖 啊飞",
+      "tags": [
+        "c"
+      ],
+      "createdAt": "2025-10-13T12:24:41.057Z",
+      "updatedAt": "2025-10-13T12:24:41.057Z"
     }
   ],
   "checklistNotes": [],

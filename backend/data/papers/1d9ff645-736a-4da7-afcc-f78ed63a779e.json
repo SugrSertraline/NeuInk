@@ -1,0 +1,787 @@
+{
+  "abstract": {
+    "en": "We consider the two-dimensional irrotational water-wave problem with a free surface and a flat bottom. In the shallow-water regime and without smallness assumption on the wave amplitude we derive, by a variational approach in the Lagrangian formalism, the Green–Naghdi equations (1.1). The second equation in (1.1) is a transport equation, the free surface is advected by the fluid flow. We show that the first equation of the system (1.1) yields the critical points of an action functional in the space of paths with fixed endpoints, within the Lagrangian formalism.",
+    "zh": "我们考虑具有自由表面和平坦底部的二维无旋水波问题。在浅水区域且不假设波幅小的情况下，我们通过拉格朗日形式中的变分方法推导出Green–Naghdi方程（1.1）。方程（1.1）中的第二个方程是输运方程，自由表面由流体流动平流。我们证明系统（1.1）的第一个方程在拉格朗日形式中，在固定端点的路径空间中给出了作用泛函的临界点。"
+  },
+  "keywords": [
+    "Green–Naghdi equations",
+    "shallow-water waves",
+    "variational methods"
+  ],
+  "sections": [
+    {
+      "id": "block-p1-001",
+      "title": {
+        "en": "1. Introduction",
+        "zh": "1. 引言"
+      },
+      "content": [
+        {
+          "id": "block-p1-002",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "The Green–Naghdi equations [14] model shallow-water waves whose amplitude is not necessarily small and represent a higher-order correction to the classical shallow-water equations."
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "Green–Naghdi 方程 [14] 模拟了振幅不一定小的浅水波，并代表了对经典浅水方程的高阶修正。"
+              }
+            ]
+          }
+        },
+        {
+          "id": "block-p1-003",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "The shallow-water regime is characterized by the undisturbed water depth "
+              },
+              {
+                "type": "inline-math",
+                "latex": "h_0"
+              },
+              {
+                "type": "text",
+                "content": " being much smaller than the horizontal wave length "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\lambda"
+              },
+              {
+                "type": "text",
+                "content": "."
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "浅水状态的特征是未受扰动的水深 "
+              },
+              {
+                "type": "inline-math",
+                "latex": "h_0"
+              },
+              {
+                "type": "text",
+                "content": " 远小于水平波长 "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\lambda"
+              },
+              {
+                "type": "text",
+                "content": "。"
+              }
+            ]
+          }
+        },
+        {
+          "id": "block-p1-004",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "The Green–Naghdi equations can be written in the following non-dimensionalized form:"
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "Green–Naghdi 方程可以写成以下无量纲形式："
+              }
+            ]
+          }
+        },
+        {
+          "id": "block-p1-006",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "with "
+              },
+              {
+                "type": "inline-math",
+                "latex": "x \\in \\mathbb{R}"
+              },
+              {
+                "type": "text",
+                "content": " and "
+              },
+              {
+                "type": "inline-math",
+                "latex": "t \\in \\mathbb{R}"
+              },
+              {
+                "type": "text",
+                "content": ", and where "
+              },
+              {
+                "type": "inline-math",
+                "latex": "u(x, t)"
+              },
+              {
+                "type": "text",
+                "content": " represents the depth-averaged horizontal velocity and "
+              },
+              {
+                "type": "inline-math",
+                "latex": "H(x, t)"
+              },
+              {
+                "type": "text",
+                "content": " is the free upper surface."
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "其中 "
+              },
+              {
+                "type": "inline-math",
+                "latex": "x \\in \\mathbb{R}"
+              },
+              {
+                "type": "text",
+                "content": " 和 "
+              },
+              {
+                "type": "inline-math",
+                "latex": "t \\in \\mathbb{R}"
+              },
+              {
+                "type": "text",
+                "content": "，且 "
+              },
+              {
+                "type": "inline-math",
+                "latex": "u(x, t)"
+              },
+              {
+                "type": "text",
+                "content": " 表示深度平均的水平速度，"
+              },
+              {
+                "type": "inline-math",
+                "latex": "H(x, t)"
+              },
+              {
+                "type": "text",
+                "content": " 是自由上表面。"
+              }
+            ]
+          }
+        },
+        {
+          "id": "block-p1-007",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "Subscripts here, and later, denote partial derivatives."
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "此处及后文中的下标表示偏导数。"
+              }
+            ]
+          }
+        },
+        {
+          "id": "block-p1-008",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "Green and Naghdi considered in [14] the three-dimensional water-wave problem with a free surface and a variable bottom, and without imposing any condition that the fluid"
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "Green 和 Naghdi 在 [14] 中考虑了具有自由表面和可变底部的三维水波问题，且未对流体施加任何条件"
+              }
+            ]
+          }
+        },
+        {
+          "id": "block-p4-001",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "The purpose of the present paper is to derive the Green–Naghdi equations (1.1) by a variational approach in the Lagrangian formalism. We consider the two-dimensional irrotational water-wave problem with a free surface and a flat bottom. In Sec. 2 we present an appropriate non-dimensionalization of this water-wave problem and subsequently the classical shallow-water equations (2.13), or (2.15) in view of the notation (2.14). The two important parameters and that arise in water-waves theories are used to define various approximations of the governing equations and the boundary conditions. The role of independent of is useful in the description of arbitrary amplitude shallow-water waves, that is, fixed. Section 3 is dedicated to the variational derivation of the Green–Naghdi equations (1.1). In the shallow-water regime, for an arbitrary fixed , for a velocity field with a horizontal component (2.10) independent of the vertical coordinate z and a vertical component (2.11) having only a linear dependence on z, the kinetic energy of the fluid has the expression (3.11) and the potential energy calculated with respect to the undisturbed water level is given by (3.12). The second equation in (1.1) is a transport equation, the free surface is advected, or Lie transported (in the geometry literature), by the fluid flow. We will show that the first equation of the system (1.1) yields the critical points of an action functional in the space of paths with fixed endpoints, within the Lagrangian formalism. In the Eulerian formalism, the Lagrangian function integrated over time in the action functional, defined as the kinetic energy minus the potential energy, has the form (3.13). In order to get the Lagrangian (3.14), we will transport (3.13) from the Eulerian picture to the tangent bundle which represents the velocity phase space in the Lagrangian formalism, this transport being made taking into account the second equation of the system (1.1). We point out that the Lagrangian (3.13) as well as (3.14) are not metrics."
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "本文的目的是通过拉格朗日形式主义中的变分方法推导 Green–Naghdi 方程 (1.1)。我们考虑具有自由表面和平坦底部的二维无旋水波问题。在第 2 节中，我们介绍了该水波问题的适当无量纲化，随后是经典浅水方程 (2.13)，或根据符号 (2.14) 的 (2.15)。水波理论中出现的两个重要参数和用于定义控制方程和边界条件的各种近似。独立于的作用在描述任意振幅浅水波时很有用，即固定。第 3 节致力于 Green–Naghdi 方程 (1.1) 的变分推导。在浅水区域中，对于任意固定的，对于水平分量 (2.10) 独立于垂直坐标 z 且垂直分量 (2.11) 仅对 z 具有线性依赖性的速度场，流体的动能具有表达式 (3.11)，相对于未扰动水位计算出的势能由 (3.12) 给出。(1.1) 中的第二个方程是输运方程，自由表面被流体流动平流或李输运（在几何文献中）。我们将证明，在拉格朗日形式主义中，系统 (1.1) 的第一个方程在具有固定端点的路径空间中产生作用泛函的临界点。在欧拉形式主义中，作用泛函中随时间积分的拉格朗日函数，定义为动能减去势能，具有形式 (3.13)。为了得到拉格朗日量 (3.14)，我们将 (3.13) 从欧拉图像传输到代表拉格朗日形式主义中速度相空间的切丛，这种传输是考虑到系统 (1.1) 的第二个方程进行的。我们指出拉格朗日量 (3.13) 以及 (3.14) 都不是度量。"
+              }
+            ]
+          }
+        }
+      ],
+      "subsections": []
+    },
+    {
+      "id": "block-p4-002",
+      "title": {
+        "en": "2. The Classical Shallow-Water Equations",
+        "zh": "2. 经典浅水方程"
+      },
+      "content": [
+        {
+          "id": "block-p4-003",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "The two-dimensional water-wave problem considered here models an irrotational, incom-"
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "这里考虑的二维水波问题模拟了一个无旋的、不可压"
+              }
+            ]
+          }
+        },
+        {
+          "id": "block-p6-001",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "where "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\epsilon := \\frac{a}{h_0}"
+              },
+              {
+                "type": "text",
+                "content": " is the amplitude parameter and "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\delta := \\frac{h_0}{\\lambda}"
+              },
+              {
+                "type": "text",
+                "content": " is the shallowness parameter."
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "其中 "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\epsilon := \\frac{a}{h_0}"
+              },
+              {
+                "type": "text",
+                "content": " 是振幅参数，"
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\delta := \\frac{h_0}{\\lambda}"
+              },
+              {
+                "type": "text",
+                "content": " 是浅水参数。"
+              }
+            ]
+          }
+        },
+        {
+          "id": "block-p6-002",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "The shallow-water approximation is obtained by requiring "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\delta \\to 0"
+              },
+              {
+                "type": "text",
+                "content": ", for arbitrary fixed "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\epsilon"
+              },
+              {
+                "type": "text",
+                "content": "."
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "浅水近似是通过要求 "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\delta \\to 0"
+              },
+              {
+                "type": "text",
+                "content": " 获得的，对于任意固定的 "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\epsilon"
+              },
+              {
+                "type": "text",
+                "content": "。"
+              }
+            ]
+          }
+        },
+        {
+          "id": "block-p6-003",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "For "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\delta = 0"
+              },
+              {
+                "type": "text",
+                "content": ", the leading-order equations become:"
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "当 "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\delta = 0"
+              },
+              {
+                "type": "text",
+                "content": " 时，主导阶方程变为："
+              }
+            ]
+          }
+        },
+        {
+          "id": "block-p6-011",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "The system of Eqs. (2.9) reduces to:"
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "方程组 (2.9) 简化为："
+              }
+            ]
+          }
+        },
+        {
+          "id": "block-p6-018",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "In the study of the full governing equations for water waves, the relations between the free surface, the fluid velocity and the pressure are more subtle. Various properties of the pressure and the velocity beneath Stokes waves are proved in Ionescu-Kruse et al."
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "在研究水波的完整控制方程时，自由表面、流体速度和压力之间的关系更为微妙。Stokes波下方压力和速度的各种性质在Ionescu-Kruse等人中得到了证明。"
+              }
+            ]
+          }
+        },
+        {
+          "id": "block-p6-019",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "If we denote by"
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "如果我们记"
+              }
+            ]
+          }
+        },
+        {
+          "id": "math_1760359428489",
+          "type": "math",
+          "latex": "\\int_{0}^{\\infty} \\int_{-\\infty}^{\\infty} \\left[ -2u^2H_x - uu_xH - 2u_x^2H^2H_x - \\frac{1}{3}u_xu_{xx}H^3 + HH_x - H_x \\right] (\\phi \\circ \\gamma^{-1})"
+        },
+        {
+          "id": "block-p6-021",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "then, the system of Eqs. (2.13) becomes:"
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "那么，方程组 (2.13) 变为："
+              }
+            ]
+          }
+        },
+        {
+          "id": "block-p6-024",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "The set of hyperbolic partial differential equations (2.15) are the so-called classical shallow-water equations (see, for example, Johnson). Equations (2.15) can be written in Hamiltonian form relative to a symplectic structure introduced by Manin. The second Hamiltonian structure for the system (2.15) was obtained by Cavalcante and McKean. In fact, the system (2.15), as a particular case of the system of polytropic gas equations in 1 + 1, i.e. in one spatial and one temporal dimension, is Hamiltonian with respect to three distinct Hamiltonian structures. These Hamiltonian structures are compatible and thus, the system of Eqs. (2.15) is completely integrable. The infinite sequence of integrals of motion (the conserved quantities) that the Hamiltonian structures give rise to was found much earlier by Benney. Equations (2.15) provide a good approximation to the exact solution of the water-wave problem; for a rigorous justification with a precise control of the estimated error see Constantin et al."
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "双曲偏微分方程组 (2.15) 是所谓的经典浅水方程（例如，参见Johnson）。方程 (2.15) 可以写成相对于Manin引入的辛结构的哈密顿形式。系统 (2.15) 的第二个哈密顿结构由Cavalcante和McKean获得。事实上，系统 (2.15) 作为1+1维多方气体方程组的特例，即在一个空间维度和一个时间维度上，相对于三个不同的哈密顿结构是哈密顿的。这些哈密顿结构是相容的，因此，方程组 (2.15) 是完全可积的。哈密顿结构产生的运动积分（守恒量）的无限序列早在Benney的工作中就已发现。方程 (2.15) 为水波问题的精确解提供了一个良好的近似；关于具有精确控制估计误差的严格证明，参见Constantin等人。"
+              }
+            ]
+          }
+        }
+      ],
+      "subsections": []
+    },
+    {
+      "id": "block-p6-025",
+      "title": {
+        "en": "3. Variational Derivation of the Green–Naghdi Shallow-Water Equations",
+        "zh": "3. Green–Naghdi浅水方程的变分推导"
+      },
+      "content": [
+        {
+          "id": "block-p6-026",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "In what follows we consider "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\epsilon"
+              },
+              {
+                "type": "text",
+                "content": " arbitrary fixed, there is no smallness assumption on the"
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "在下文中，我们考虑 "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\epsilon"
+              },
+              {
+                "type": "text",
+                "content": " 任意固定，对"
+              }
+            ]
+          }
+        }
+      ],
+      "subsections": []
+    }
+  ],
+  "references": [
+    {
+      "id": "ref-1",
+      "authors": [
+        "Abraham, R.",
+        "Marsden, J. E."
+      ],
+      "title": "Foundations of Mechanics",
+      "publication": "Benjamin-Cummings",
+      "year": 1978,
+      "doi": null,
+      "url": null,
+      "pages": null,
+      "volume": null,
+      "issue": null
+    },
+    {
+      "id": "ref-2",
+      "authors": [
+        "Alvarez-Samaniego, B.",
+        "Lannes, D."
+      ],
+      "title": "A Nash–Moser theorem for singular evolution equations. Application to the Serre and Green–Naghdi equations",
+      "publication": "Indiana University Mathematics Journal",
+      "year": 2008,
+      "doi": null,
+      "url": null,
+      "pages": "97–131",
+      "volume": "57",
+      "issue": null
+    },
+    {
+      "id": "ref-3",
+      "authors": [
+        "Alvarez-Samaniego, B.",
+        "Lannes, D."
+      ],
+      "title": "Large time existence for 3D water-waves and asymptotics",
+      "publication": "Inventiones Mathematicae",
+      "year": 2008,
+      "doi": null,
+      "url": null,
+      "pages": "485–541",
+      "volume": "171",
+      "issue": null
+    },
+    {
+      "id": "ref-4",
+      "authors": [
+        "Arnold, V. I.",
+        "Khesin, B. A."
+      ],
+      "title": "Topological Methods in Hydrodynamics",
+      "publication": "Springer-Verlag",
+      "year": 1998,
+      "doi": null,
+      "url": null,
+      "pages": null,
+      "volume": null,
+      "issue": null
+    },
+    {
+      "id": "ref-5",
+      "authors": [
+        "Benney, D. J."
+      ],
+      "title": "Some properties of long nonlinear waves",
+      "publication": "Studies in Applied Mathematics",
+      "year": 1973,
+      "doi": null,
+      "url": null,
+      "pages": "45–50",
+      "volume": "52",
+      "issue": null
+    },
+    {
+      "id": "ref-6",
+      "authors": [
+        "Carter, J. D.",
+        "Cienfuegos, R."
+      ],
+      "title": "The kinematics and stability of solitary and cnoidal wave solutions of the Serre equations",
+      "publication": "European Journal of Mechanics - B/Fluids",
+      "year": 2011,
+      "doi": null,
+      "url": null,
+      "pages": "259–268",
+      "volume": "30",
+      "issue": null
+    },
+    {
+      "id": "ref-7",
+      "authors": [
+        "Cavalcante, J.",
+        "McKean, H. P."
+      ],
+      "title": "The classical shallow water equations: Symplectic geometry",
+      "publication": "Physica D: Nonlinear Phenomena",
+      "year": 1982,
+      "doi": null,
+      "url": null,
+      "pages": "253–260",
+      "volume": "4",
+      "issue": null
+    },
+    {
+      "id": "ref-8",
+      "authors": [
+        "Constantin, A."
+      ],
+      "title": "The Hamiltonian structure of the Camassa–Holm equation",
+      "publication": "Expositiones Mathematicae",
+      "year": 1997,
+      "doi": null,
+      "url": null,
+      "pages": "053–085",
+      "volume": "15",
+      "issue": null
+    },
+    {
+      "id": "ref-9",
+      "authors": [
+        "Constantin, A."
+      ],
+      "title": "The trajectories of particles in Stokes waves",
+      "publication": "Inventiones Mathematicae",
+      "year": 2006,
+      "doi": null,
+      "url": null,
+      "pages": "523–535",
+      "volume": "166",
+      "issue": null
+    },
+    {
+      "id": "ref-10",
+      "authors": [
+        "Constantin, A.",
+        "Johnson, R. S."
+      ],
+      "title": "On the non-dimensionalisation, scaling and resulting interpretation of the classical governing equations",
+      "publication": "Journal of Nonlinear Mathematical Physics",
+      "year": 2008,
+      "doi": null,
+      "url": null,
+      "pages": "58–73",
+      "volume": "15",
+      "issue": null
+    },
+    {
+      "id": "ref-11",
+      "authors": [
+        "Constantin, A.",
+        "Kolev, B."
+      ],
+      "title": "On the geometric approach to the motion of inertial mechanical systems",
+      "publication": "Journal of Physics A: Mathematical and General",
+      "year": 2002,
+      "doi": null,
+      "url": null,
+      "pages": "R51–R79",
+      "volume": "35",
+      "issue": null
+    },
+    {
+      "id": "ref-12",
+      "authors": [
+        "Constantin, A.",
+        "Strauss, W."
+      ],
+      "title": "Pressure beneath a Stokes wave",
+      "publication": "Communications on Pure and Applied Mathematics",
+      "year": 2010,
+      "doi": null,
+      "url": null,
+      "pages": "533–557",
+      "volume": "53",
+      "issue": null
+    },
+    {
+      "id": "ref-13",
+      "authors": [
+        "El, G. A.",
+        "Grimshaw, R. H. J.",
+        "Smyth, N. F."
+      ],
+      "title": "Unsteady undular bores in fully nonlinear shallow-water theory",
+      "publication": "Physics of Fluids",
+      "year": 2006,
+      "doi": null,
+      "url": null,
+      "pages": "027104",
+      "volume": "18",
+      "issue": null
+    },
+    {
+      "id": "ref-14",
+      "authors": [
+        "Green, A.",
+        "Naghdi, P."
+      ],
+      "title": "A derivation of equations for wave propagation in water of variable depth",
+      "publication": "Journal of Fluid Mechanics",
+      "year": 1976,
+      "doi": null,
+      "url": null,
+      "pages": "237–246",
+      "volume": "78",
+      "issue": null
+    },
+    {
+      "id": "ref-15",
+      "authors": [
+        "Henry, D."
+      ],
+      "title": "Pressure in a deep-water Stokes wave",
+      "publication": "Journal of Mathematical Fluid Mechanics",
+      "year": 2011,
+      "doi": null,
+      "url": null,
+      "pages": "251–257",
+      "volume": "13",
+      "issue": null
+    },
+    {
+      "id": "ref-16",
+      "authors": [
+        "Holm, D. D."
+      ],
+      "title": "Hamiltonian structure for two-dimensional hydrodynamics with nonlinear dispersion",
+      "publication": null,
+      "year": null,
+      "doi": null,
+      "url": null,
+      "pages": null,
+      "volume": null,
+      "issue": null
+    }
+  ],
+  "blockNotes": [],
+  "checklistNotes": [],
+  "attachments": []
+}

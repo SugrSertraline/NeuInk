@@ -1,7 +1,7 @@
 // backend/src/models/Paper.ts
 
 import { getDatabase } from '../utils/database';
-import type { PaperRecord as ApiPaperRecord } from "@neuink/shared"
+import type { PaperRecord as ApiPaperRecord } from "../types/paper"
 
 function rowToApi(row: any): ApiPaperRecord {
   if (!row) return row;

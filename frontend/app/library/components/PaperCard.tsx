@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import type { PaperMetadata } from '@neuink/shared';
+import type { PaperMetadata } from '@/app/types/paper';
 import { getStatusBadge, getPriorityBadge, getQuartileColor } from '../utils/paperHelpers';
 import { parseStatusInfo } from '../utils/parseStatusHelper';
 

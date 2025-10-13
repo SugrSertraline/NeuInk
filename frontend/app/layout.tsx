@@ -32,7 +32,7 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <body
-        className={`${inter.className} bg-background text-foreground antialiased electron-app`}
+        className={`${inter.className} bg-background text-foreground antialiased`}
         suppressHydrationWarning
       >
         <ThemeProvider>

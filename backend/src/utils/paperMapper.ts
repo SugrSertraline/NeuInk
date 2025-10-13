@@ -1,5 +1,5 @@
 // backend/src/utils/paperMapper.ts
-import { PaperMetadata, PaperRecord } from '@neuink/shared';
+import { PaperRecord, PaperMetadata } from '../types/paper';
 
 /**
  * 数据库记录（PaperRecord）→ 前端元数据（PaperMetadata）

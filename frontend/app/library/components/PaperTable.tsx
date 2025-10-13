@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { PaperMetadata } from '@neuink/shared';
+import type { PaperMetadata } from '@/app/types/paper';
 import {
   getStatusBadge,
   getPriorityBadge,

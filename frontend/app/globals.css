@@ -130,56 +130,6 @@
   }
 }
 
-/* ==================== Electron 相关样式 ==================== */
-@utility electron-app {
-  -webkit-app-region: no-drag;
-  
-  & * {
-    -webkit-user-select: none;
-  }
-  
-  & input,
-  & textarea,
-  & [contenteditable="true"],
-  & .prose,
-  & .prose * {
-    -webkit-user-select: text;
-  }
-}
-
-@utility drag-region {
-  -webkit-app-region: drag;
-}
-
-@utility no-drag-region {
-  -webkit-app-region: no-drag;
-}
-
-/* ==================== 标题栏按钮样式 ==================== */
-@layer components {
-  .titlebar-button {
-    -webkit-app-region: no-drag;
-    transition: all 0.15s ease;
-  }
-  
-  .titlebar-button:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-  }
-  
-  .titlebar-button.close:hover {
-    background-color: #e81123 !important;
-  }
-  
-  /* 暗色模式下的标题栏按钮 */
-  .dark .titlebar-button:hover {
-    background-color: rgba(255, 255, 255, 0.05);
-  }
-  
-  .dark .titlebar-button.close:hover {
-    background-color: #e81123 !important;
-  }
-}
-
 /* ==================== Prose 样式（文章内容） ==================== */
 @layer components {
   .prose {

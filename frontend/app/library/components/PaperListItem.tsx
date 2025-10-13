@@ -6,7 +6,7 @@ import { Star, Loader2, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import type { PaperMetadata } from '@neuink/shared';
+import type { PaperMetadata } from '@/app/types/paper';
 import { getStatusBadge, getQuartileColor } from '../utils/paperHelpers';
 import { parseStatusInfo } from '../utils/parseStatusHelper';
 

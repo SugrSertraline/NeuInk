@@ -9,7 +9,6 @@
     "start": "node dist/src/index.js"
   },
   "dependencies": {
-    "@neuink/shared": "file:../shared",
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",

@@ -24,13 +24,7 @@ export default function TabBar() {
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
-  const [isElectron, setIsElectron] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  // 检查是否在 Electron 环境中（客户端挂载后检查，避免 hydration 错误）
-  useEffect(() => {
-    setIsElectron(typeof window !== 'undefined' && !!window.electronAPI);
-  }, []);
 
   // 当活跃标签改变时，自动滚动到可见区域
   useEffect(() => {
@@ -52,16 +46,6 @@ export default function TabBar() {
     }
   }, [pathname, loadingTabId, tabs, setLoading]);
 
-  // 检查窗口最大化状态
-  useEffect(() => {
-    if (isElectron && window.electronAPI) {
-      const checkMaximized = async () => {
-        const maximized = await window.electronAPI!.window.isMaximized();
-        setIsMaximized(maximized);
-      };
-      checkMaximized();
-    }
-  }, [isElectron]);
 
   // 检查滚动位置以显示/隐藏渐变遮罩和箭头
   useEffect(() => {
@@ -226,31 +210,11 @@ export default function TabBar() {
     closeTab(tab.id);
   };
 
-  // 窗口控制按钮处理
-  const handleMinimize = () => {
-    if (isElectron && window.electronAPI) {
-      window.electronAPI.window.minimize();
-    }
-  };
-
-  const handleMaximize = async () => {
-    if (isElectron && window.electronAPI) {
-      await window.electronAPI.window.maximize();
-      const maximized = await window.electronAPI.window.isMaximized();
-      setIsMaximized(maximized);
-    }
-  };
-
-  const handleClose = () => {
-    if (isElectron && window.electronAPI) {
-      window.electronAPI.window.close();
-    }
-  };
 
   return (
-    <div className="h-16 flex items-center px-4 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm gap-2 electron-drag overflow-hidden">
+    <div className="h-16 flex items-center px-4 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm gap-2 overflow-hidden">
       {/* 标签页列表容器 - 带渐变遮罩和箭头 */}
-      <div className="relative flex-1 h-full overflow-hidden electron-no-drag flex items-center">
+      <div className="relative flex-1 h-full overflow-hidden flex items-center">
         {/* 左箭头按钮 */}
         {showLeftGradient && (
           <button
@@ -343,50 +307,6 @@ export default function TabBar() {
         )}
       </div>
 
-      {/* 窗口控制按钮 - 仅在 Electron 环境中显示 */}
-      {isElectron && (
-        <div className="flex items-center gap-1 ml-2 electron-no-drag flex-shrink-0">
-          {/* 最小化 */}
-          <button
-            onClick={handleMinimize}
-            className="group flex items-center justify-center w-12 h-12 rounded-lg hover:bg-slate-200/80 dark:hover:bg-slate-700/80 transition-all duration-200"
-            title="最小化"
-          >
-            <Minus className="w-5 h-5 text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors" />
-          </button>
-
-          {/* 最大化/还原 */}
-          <button
-            onClick={handleMaximize}
-            className="group flex items-center justify-center w-12 h-12 rounded-lg hover:bg-slate-200/80 dark:hover:bg-slate-700/80 transition-all duration-200"
-            title={isMaximized ? "还原" : "最大化"}
-          >
-            {isMaximized ? (
-              <svg 
-                className="w-4 h-4 text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors" 
-                viewBox="0 0 16 16" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="1.5"
-              >
-                <rect x="4" y="4" width="8" height="8" rx="1" />
-                <path d="M6 4V2.5A1.5 1.5 0 0 1 7.5 1h6A1.5 1.5 0 0 1 15 2.5v6a1.5 1.5 0 0 1-1.5 1.5H12" />
-              </svg>
-            ) : (
-              <Square className="w-4 h-4 text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors" />
-            )}
-          </button>
-
-          {/* 关闭 */}
-          <button
-            onClick={handleClose}
-            className="group flex items-center justify-center w-12 h-12 rounded-lg hover:bg-red-500 transition-all duration-200"
-            title="关闭"
-          >
-            <X className="w-5 h-5 text-slate-600 dark:text-slate-300 group-hover:text-white transition-colors" />
-          </button>
-        </div>
-      )}
 
       <style jsx>{`
         .scrollbar-hide::-webkit-scrollbar {

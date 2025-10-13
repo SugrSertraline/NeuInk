@@ -1,6 +1,4 @@
-// app/types/checklist.ts
-
-// ============= 从 shared 移过来的类型 =============
+// 后端使用的清单类型定义
 
 /** 清单记录（数据库层） */
 export interface ChecklistRecord {

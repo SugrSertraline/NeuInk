@@ -3,7 +3,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { Checklist } from '../models/Checklist';
-import type { ChecklistNote } from '@neuink/shared';
+import type { ChecklistNote } from '../types/checklist';
 
 /**
  * 生成清单路径

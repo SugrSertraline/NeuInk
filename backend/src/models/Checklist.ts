@@ -1,7 +1,7 @@
 // backend/src/models/Checklist.ts
 
 import { getDatabase } from '../utils/database';
-import type { ChecklistRecord, ChecklistTree, ChecklistNode } from '@neuink/shared';
+import type { ChecklistRecord, ChecklistTree, ChecklistNode } from '../types/checklist';
 
 // ✅ 删除了 template_id
 const SELECT_FIELDS = `
