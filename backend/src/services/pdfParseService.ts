@@ -30,7 +30,7 @@ class PDFParseService {
   private initialized = false;
 
   /**
-   * 🆕 延迟初始化（首次使用时才初始化）
+   * 延迟初始化（首次使用时才初始化）
    */
   private ensureInitialized() {
     if (this.initialized) return;
@@ -46,17 +46,13 @@ class PDFParseService {
     }
 
     try {
-      this.pdfConverter = new PDFConverterService({
-        apiKey,
-        chunkSize: 1,
-        contextOverlap: 500
-      });
-      
+      // 🆕 注意：不在这里创建 PDFConverterService，在每个任务中创建
+      // 因为需要传递进度回调
       const maskedKey = `${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}`;
-      console.log('✅ PDF转换服务已初始化');
+      console.log('✅ PDF解析服务已就绪');
       console.log(`   API Key: ${maskedKey}`);
     } catch (error) {
-      console.error('❌ PDF转换服务初始化失败:', error);
+      console.error('❌ PDF解析服务初始化失败:', error);
     }
 
     this.initialized = true;
@@ -66,10 +62,10 @@ class PDFParseService {
    * 创建解析任务
    */
   async createParseJob(paperId: string, pdfPath: string): Promise<string> {
-    // 🔑 关键：首次使用时才初始化
     this.ensureInitialized();
 
-    if (!this.pdfConverter) {
+    const apiKey = process.env.DEEPSEEK_API_KEY;
+    if (!apiKey) {
       throw new Error('PDF转换服务不可用，请检查 DEEPSEEK_API_KEY 环境变量是否正确设置');
     }
 
@@ -148,37 +144,45 @@ class PDFParseService {
       job.startedAt = new Date().toISOString();
 
       // ============ 步骤1: 验证文件 ============
-      this.updateJobProgress(jobId, 5, '🔍 验证PDF文件是否存在...');
+      await this.updateJobProgress(jobId, 0, '🔍 验证PDF文件');
       await fs.access(job.pdfPath);
       const stats = await fs.stat(job.pdfPath);
       const fileSizeMB = (stats.size / 1024 / 1024).toFixed(2);
-      this.updateJobProgress(jobId, 10, `✅ 文件验证成功 (${fileSizeMB} MB)`);
+      console.log(`✅ 文件验证成功 (${fileSizeMB} MB)`);
 
-      // ============ 检查转换器是否可用 ============
-      if (!this.pdfConverter) {
-        throw new Error('PDF转换服务不可用');
+      // ============ 步骤2: 创建转换器并开始转换 ============
+      const apiKey = process.env.DEEPSEEK_API_KEY;
+      if (!apiKey) {
+        throw new Error('DEEPSEEK_API_KEY 未配置');
       }
 
-      // ============ 步骤2: 使用PDFConverterService进行转换 ============
-      this.updateJobProgress(jobId, 15, '🔄 开始PDF内容转换...');
-      
+      // 🎯 创建带进度回调的转换器
+      const pdfConverter = new PDFConverterService({
+        apiKey,
+        chunkSize: 1,
+        contextOverlap: 500,
+        onProgress: async (progress: number, message: string) => {
+          // 🔥 实时更新进度到数据库
+          await this.updateJobProgress(jobId, progress, message);
+        }
+      });
+
       const originalName = path.basename(job.pdfPath);
-      const paperContent = await this.pdfConverter.convertPDF(job.pdfPath, originalName);
-      
-      this.updateJobProgress(jobId, 90, '✅ PDF转换完成');
+      const paperContent = await pdfConverter.convertPDF(job.pdfPath, originalName);
 
       // ============ 步骤3: 保存解析结果 ============
-      this.updateJobProgress(jobId, 95, '💾 正在保存解析结果...');
+      await this.updateJobProgress(jobId, 98, '💾 正在保存解析结果');
       await this.saveContent(job.paperId, paperContent);
-      this.updateJobProgress(jobId, 98, '✅ 解析结果已保存');
+      console.log('✅ 解析结果已保存');
 
       // ============ 步骤4: 更新论文状态 ============
-      this.updateJobProgress(jobId, 99, '🔄 正在更新论文状态...');
+      await this.updateJobProgress(jobId, 99, '🔄 正在更新论文状态');
       await Paper.update(job.paperId, { parseStatus: 'completed' });
-      this.updateJobProgress(jobId, 100, '✅ 全部完成');
 
       job.status = 'completed';
       job.completedAt = new Date().toISOString();
+      job.progress = 100;
+      job.currentStep = '✅ 解析完成';
 
       const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(2);
 
@@ -213,7 +217,9 @@ class PDFParseService {
 
       // 更新论文状态为解析失败
       try {
-        await Paper.update(job.paperId, { parseStatus: 'failed' });
+        await Paper.update(job.paperId, { 
+          parseStatus: `failed: ${errorMessage}` 
+        });
       } catch (updateError) {
         console.error(`⚠️ 更新论文状态失败:`, updateError);
       }
@@ -221,20 +227,31 @@ class PDFParseService {
   }
 
   /**
-   * 更新任务进度（带详细命令行输出）
+   * 🆕 更新任务进度（同步到数据库和内存）
    */
-  private updateJobProgress(jobId: string, progress: number, message: string) {
+  private async updateJobProgress(jobId: string, progress: number, message: string) {
     const job = this.jobs.get(jobId);
-    if (job) {
-      job.progress = progress;
-      job.currentStep = message;
-      
-      // 生成进度条
-      const progressBar = this.getProgressBar(progress);
-      const timestamp = new Date().toLocaleTimeString('zh-CN');
-      
-      // 🎯 关键：详细的命令行输出
-      console.log(`[${timestamp}] ${progressBar} ${progress}% | ${message}`);
+    if (!job) return;
+
+    // 更新内存中的任务状态
+    job.progress = progress;
+    job.currentStep = message;
+    
+    // 生成进度条
+    const progressBar = this.getProgressBar(progress);
+    const timestamp = new Date().toLocaleTimeString('zh-CN');
+    
+    // 命令行输出
+    console.log(`[${timestamp}] ${progressBar} ${progress}% | ${message}`);
+    
+    // 🔥 实时同步到数据库（只有解析中才更新，完成状态在外部设置）
+    if (progress < 100) {
+      const statusText = `${progress}% ${message}`;
+      try {
+        await Paper.update(job.paperId, { parseStatus: statusText });
+      } catch (error) {
+        console.error(`⚠️ 更新解析状态失败:`, error);
+      }
     }
   }
 

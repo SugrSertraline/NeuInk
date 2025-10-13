@@ -12,9 +12,11 @@ import { X } from 'lucide-react';
 import { ChecklistNode } from '@neuink/shared';
 import { fetchPaperChecklists } from '@/app/lib/checklistApi';
 import { calculateAllNumbers, stripAllNumbers } from './utils/autoNumbering';
+import { fetchPapers } from '@/app/lib/paperApi';
 
 type Lang = 'en' | 'both';
 type NoteMode = 'block' | 'checklist' | null;
+
 
 export default function PaperPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
@@ -498,3 +500,4 @@ const handleBlockQuickEdit = async (updatedBlock: BlockContent, sectionId: strin
     </div>
   );
 }
+

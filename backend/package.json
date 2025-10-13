@@ -2,12 +2,11 @@
   "name": "neuink-backend",
   "version": "0.1.0",
   "description": "NeuInk后端服务",
-  "main": "dist/index.js",
+  "main": "dist/src/index.js",
   "scripts": {
     "dev": "nodemon --exec ts-node src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "test:create-paper": "tsx scripts/createTestPaper.ts"
+    "build": "rimraf dist && tsc --build",
+    "start": "node dist/src/index.js"
   },
   "dependencies": {
     "@neuink/shared": "file:../shared",
@@ -31,6 +30,7 @@
     "nodemon": "^3.1.10",
     "open": "^10.2.0",
     "pkg": "^5.8.1",
+    "rimraf": "^5.0.5",
     "ts-node": "^10.9.2",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"

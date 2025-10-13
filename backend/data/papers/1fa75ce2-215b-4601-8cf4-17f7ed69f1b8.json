@@ -355,7 +355,18 @@
             "en": [
               {
                 "type": "text",
-                "content": "The encoder is composed of a stack of "
+                "content": "T"
+              },
+              {
+                "type": "text",
+                "content": "he encoder is composed o",
+                "style": {
+                  "bold": true
+                }
+              },
+              {
+                "type": "text",
+                "content": "f a stack of "
               },
               {
                 "type": "inline-math",
@@ -1293,57 +1304,7 @@
       "updatedAt": "2025-10-11T06:16:38.531Z"
     }
   ],
-  "checklistNotes": [
-    {
-      "id": "note-1759987231557-bkz8bvlgp",
-      "checklistId": "25ee44dc-1eca-45cf-9b9c-5b5d73edb917",
-      "checklistPath": "测测/你好",
-      "content": "1. 熔沸点发斯蒂芬对方水电费地方\n2. 法师打发斯蒂芬",
-      "tags": [
-        "cv"
-      ],
-      "createdAt": "2025-10-09T05:20:31.557Z",
-      "updatedAt": "2025-10-11T06:20:01.434Z"
-    },
-    {
-      "id": "note-1759987233817-8zhw3rtdb",
-      "checklistId": "25ee44dc-1eca-45cf-9b9c-5b5d73edb917",
-      "checklistPath": "测测/你好",
-      "content": "hahaha",
-      "tags": [],
-      "createdAt": "2025-10-09T05:20:33.817Z",
-      "updatedAt": "2025-10-09T05:20:33.817Z"
-    },
-    {
-      "id": "note-1759987236542-i3hbo98xf",
-      "checklistId": "25ee44dc-1eca-45cf-9b9c-5b5d73edb917",
-      "checklistPath": "测测/你好",
-      "content": "ahaha",
-      "tags": [],
-      "createdAt": "2025-10-09T05:20:36.542Z",
-      "updatedAt": "2025-10-09T05:20:36.542Z"
-    },
-    {
-      "id": "note-1759992783351-esivm8xaw",
-      "checklistId": "25ee44dc-1eca-45cf-9b9c-5b5d73edb917",
-      "checklistPath": "测测/你好",
-      "content": "eae",
-      "tags": [],
-      "createdAt": "2025-10-09T06:53:03.351Z",
-      "updatedAt": "2025-10-09T06:53:03.352Z"
-    },
-    {
-      "id": "note-1760164226252-csyr2kced",
-      "checklistId": "b1678dee-e48b-4ef2-b133-1e5e57977cc5",
-      "checklistPath": "缺陷检测/方法",
-      "content": "阿萨水电费水电费",
-      "tags": [
-        "异常检测"
-      ],
-      "createdAt": "2025-10-11T06:30:26.252Z",
-      "updatedAt": "2025-10-11T06:30:26.252Z"
-    }
-  ],
+  "checklistNotes": [],
   "pdfPath": "/api/uploads/papers/aa25138f-98c2-4925-b68e-c48cc99334b0/transformer.pdf",
   "attachments": [
     "/api/uploads/papers/aa25138f-98c2-4925-b68e-c48cc99334b0/supplementary.pdf",

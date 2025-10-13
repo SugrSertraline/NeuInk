@@ -25,7 +25,7 @@ import rehypeHighlight from 'rehype-highlight';
 import rehypeRaw from 'rehype-raw';
 import 'easymde/dist/easymde.min.css';
 import 'highlight.js/styles/github.css';
-import { fetchChecklistNode, fetchChecklistPapers } from '@/app/lib/checklistApi';
+import { fetchChecklistNode, fetchChecklistPapers, fetchChecklistTree } from '@/app/lib/checklistApi';
 import { fetchPaperContent, savePaperContent } from '@/app/lib/paperApi';
 import type { ChecklistNode } from '@neuink/shared';
 import type { PaperMetadata, ChecklistNote } from '@neuink/shared';

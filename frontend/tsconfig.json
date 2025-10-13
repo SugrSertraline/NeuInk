@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2020", // 推荐升级到 ES2020
+    "target": "ES2020",
     "lib": [
       "dom",
       "dom.iterable",
@@ -39,12 +39,13 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts",
     "global.d.ts",
     "next-env.d.ts",
-    "out/types/**/*.ts"
+    ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    ".next",
+    "out"
   ]
 }

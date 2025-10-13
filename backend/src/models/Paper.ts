@@ -138,8 +138,8 @@ export class Paper {
       paper.readingPosition ?? 0,
       paper.totalReadingTime ?? 0,
       toNull(paper.lastReadTime),
-      'pending', // 默认解析状态
-      null, // 默认PDF路径为空
+      toNull(paper.parseStatus) ?? 'pending', // ✅ 使用传入的值，没有时默认 'pending'
+      toNull(paper.pdfPath), // ✅ 使用传入的 pdfPath
       now,
       now
     );
@@ -170,7 +170,7 @@ export class Paper {
     for (const [k, v] of entries) {
       const col = COL_MAP[k];
       if (!col) continue;
-      
+
       setClauses.push(`${col} = ?`);
       values.push(v);
     }
@@ -216,11 +216,11 @@ export class Paper {
   }> {
     const db = await getDatabase();
     const { page, limit, sortRules, search, filters } = options;
-    
+
     // 构建 WHERE 子句
     const conditions: string[] = [];
     const params: any[] = [];
-    
+
     // 搜索条件（标题、作者、期刊、DOI、标签、备注）
     if (search) {
       conditions.push(`(
@@ -234,49 +234,49 @@ export class Paper {
       const searchPattern = `%${search}%`;
       params.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
     }
-    
+
     // 阅读状态筛选
     if (filters.status && filters.status !== 'all') {
       conditions.push('reading_status = ?');
       params.push(filters.status);
     }
-    
+
     // 优先级筛选
     if (filters.priority && filters.priority !== 'all') {
       conditions.push('priority = ?');
       params.push(filters.priority);
     }
-    
+
     // 文章类型筛选
     if (filters.articleType && filters.articleType !== 'all') {
       conditions.push('article_type = ?');
       params.push(filters.articleType);
     }
-    
+
     // 年份筛选
     if (filters.year && filters.year !== 'all') {
       conditions.push('year = ?');
       params.push(parseInt(filters.year));
     }
-    
+
     // SCI分区筛选
     if (filters.sciQuartile && filters.sciQuartile !== 'all') {
       conditions.push('sci_quartile = ?');
       params.push(filters.sciQuartile);
     }
-    
+
     // 中科院分区筛选
     if (filters.casQuartile && filters.casQuartile !== 'all') {
       conditions.push('cas_quartile = ?');
       params.push(filters.casQuartile);
     }
-    
+
     // CCF分级筛选
     if (filters.ccfRank && filters.ccfRank !== 'all') {
       conditions.push('ccf_rank = ?');
       params.push(filters.ccfRank);
     }
-    
+
     // 评分筛选
     if (filters.rating && filters.rating !== 'all') {
       if (filters.rating === '4+') {
@@ -287,9 +287,9 @@ export class Paper {
         conditions.push('rating < 3');
       }
     }
-    
+
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-    
+
     // 🆕 构建多级排序的 ORDER BY 子句
     const sortColumnMap: Record<string, string> = {
       'createdAt': 'created_at',
@@ -301,22 +301,22 @@ export class Paper {
       'readingStatus': 'reading_status',
       'priority': 'priority',
     };
-    
+
     const orderByParts = sortRules.map(rule => {
       const column = sortColumnMap[rule.field] || 'created_at';
       const direction = rule.order.toUpperCase();
       return `${column} ${direction}`;
     });
-    
+
     const orderByClause = orderByParts.length > 0
       ? `ORDER BY ${orderByParts.join(', ')}`
       : 'ORDER BY created_at DESC';
-    
+
     // 计算总数
     const countQuery = `SELECT COUNT(*) as total FROM papers ${whereClause}`;
     const countResult = await db.get(countQuery, ...params);
     const total = countResult.total;
-    
+
     // 分页查询
     const offset = (page - 1) * limit;
     const dataQuery = `
@@ -326,9 +326,9 @@ export class Paper {
       ${orderByClause}
       LIMIT ? OFFSET ?
     `;
-    
+
     const rows = await db.all(dataQuery, ...params, limit, offset);
-    
+
     return {
       papers: rows.map(rowToApi),
       total

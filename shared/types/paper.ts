@@ -26,7 +26,6 @@ export type ReadingStatus = 'unread' | 'reading' | 'finished';
 export type Priority = 'high' | 'medium' | 'low';
 
 /** 解析状态 */
-export type ParseStatus = 'pending' | 'parsing' | 'completed' | 'failed';
 
 /** 论文元数据基础接口 */
 interface PaperMetadataBase {
@@ -49,7 +48,7 @@ interface PaperMetadataBase {
   readingPosition?: number;
   totalReadingTime?: number;
   lastReadTime?: string;
-  parseStatus?: ParseStatus;
+  parseStatus?: string;
   pdfPath?: string;
   createdAt: string;
   updatedAt: string;

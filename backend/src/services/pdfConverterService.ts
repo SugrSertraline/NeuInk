@@ -8,17 +8,18 @@ export interface PDFConverterConfig {
   apiKey: string;
   chunkSize?: number;
   contextOverlap?: number;
+  onProgress?: (progress: number, message: string) => void; // 🆕 进度回调
 }
 
-// 🆕 页面内容类型（一页可能包含多种）
+// 页面内容类型
 interface PageContentFlags {
-  hasTitle: boolean;        // 包含标题/作者信息
-  hasAbstract: boolean;     // 包含摘要
-  hasKeywords: boolean;     // 包含关键词
-  hasMainContent: boolean;  // 包含正文
-  hasReferences: boolean;   // 包含参考文献
-  hasCopyright: boolean;    // 包含版权信息
-  isEmptyOrNoise: boolean;  // 空白页或噪声页
+  hasTitle: boolean;
+  hasAbstract: boolean;
+  hasKeywords: boolean;
+  hasMainContent: boolean;
+  hasReferences: boolean;
+  hasCopyright: boolean;
+  isEmptyOrNoise: boolean;
 }
 
 export class PDFConverterService {
@@ -39,40 +40,56 @@ export class PDFConverterService {
     this.structureParser = new StructureParser();
   }
 
+  /**
+   * 🆕 报告进度（带日志）
+   */
+  private reportProgress(progress: number, message: string) {
+    if (this.config.onProgress) {
+      this.config.onProgress(progress, message);
+    }
+  }
+
   async convertPDF(filePath: string, originalName: string): Promise<any> {
     console.log(`\n📚 开始解析PDF: ${originalName}`);
     console.log(`${'─'.repeat(60)}`);
 
     try {
-      // ============ 步骤1: 提取PDF文本 ============
+      // ============ 步骤1: 提取PDF文本 (0-10%) ============
+      this.reportProgress(0, '🔤 开始提取PDF页面文本');
       console.log('\n🔤 步骤1: 提取PDF页面文本...');
+      
       const pages = await this.pdfParser.extractPages(filePath);
-      console.log(`   ✓ 成功提取 ${pages.length} 页内容`);
+      const totalPages = pages.length;
+      
+      this.reportProgress(10, `✓ 成功提取 ${totalPages} 页内容`);
+      console.log(`   ✓ 成功提取 ${totalPages} 页内容`);
 
-      // ============ 步骤2: 分析每页内容类型 ============
+      // ============ 步骤2: 分析页面内容类型 (10-15%) ============
+      this.reportProgress(10, '🔍 分析页面内容类型');
       console.log('\n🔍 步骤2: 分析页面内容类型...');
+      
       const pageAnalysis = pages.map((page, index) => {
         const flags = this.analyzePageContent(page.text);
         const types = this.getContentTypeLabels(flags);
         console.log(`   页面 ${index + 1}: ${types}`);
         return flags;
       });
+      
+      this.reportProgress(15, '✓ 页面类型分析完成');
 
-      // ============ 步骤3: 提取摘要和关键词 ============
+      // ============ 步骤3: 提取摘要和关键词 (15-25%) ============
+      this.reportProgress(15, '📝 提取摘要和关键词');
       console.log('\n📝 步骤3: 提取摘要和关键词...');
       
-      // ✅ 修复：使用正确的类型定义
       let abstract: { en?: string; zh?: string } = {};
       let keywords: string[] = [];
       
-      // 找到包含摘要的页面
       const abstractPageIndices = pageAnalysis
         .map((flags, index) => ({ flags, index }))
         .filter(({ flags }) => flags.hasAbstract)
         .map(({ index }) => index);
 
       if (abstractPageIndices.length > 0) {
-        // 提取包含摘要的页面文本
         const abstractText = abstractPageIndices
           .map(index => pages[index].text)
           .join('\n\n');
@@ -81,6 +98,7 @@ export class PDFConverterService {
         abstract = extracted.abstract;
         keywords = extracted.keywords;
         
+        this.reportProgress(25, `✓ 摘要和关键词提取完成 (${keywords.length} 个关键词)`);
         console.log(`   ✓ 摘要提取成功 (${abstract.en?.length || 0} 字符)`);
         console.log(`   ✓ 关键词提取成功 (${keywords.length} 个)`);
       } else {
@@ -90,36 +108,44 @@ export class PDFConverterService {
         abstract = extracted.abstract;
         keywords = extracted.keywords;
         
+        this.reportProgress(25, `✓ 摘要和关键词提取完成 (${keywords.length} 个关键词)`);
         console.log(`   ✓ 摘要提取成功 (${abstract.en?.length || 0} 字符)`);
         console.log(`   ✓ 关键词提取成功 (${keywords.length} 个)`);
       }
 
-      // ============ 步骤4: 解析正文内容 ============
+      // ============ 步骤4: 解析正文内容 (25-85%) ============
+      // 这部分占60%的进度，按页面数平均分配
+      this.reportProgress(25, '📄 开始解析论文正文');
       console.log('\n📄 步骤4: 解析论文正文...');
+      
       const pagesData = [];
       
-      for (let i = 0; i < pages.length; i++) {
-        const page = pages[i];
-        const flags = pageAnalysis[i];
+      // 过滤出需要解析的页面
+      const pagesToParse = pages
+        .map((page, index) => ({ page, index, flags: pageAnalysis[index] }))
+        .filter(({ flags }) => flags.hasMainContent && !flags.isEmptyOrNoise);
+      
+      const totalPagesToParse = pagesToParse.length;
+      const progressPerPage = 60 / totalPagesToParse; // 每页占的进度
+      
+      console.log(`   共需解析 ${totalPagesToParse} 页正文内容\n`);
+      
+      for (let i = 0; i < pagesToParse.length; i++) {
+        const { page, index: originalIndex } = pagesToParse[i];
+        const currentProgress = 25 + Math.round((i / totalPagesToParse) * 60);
         
-        // 🔑 关键改进：只要页面包含正文内容就解析
-        if (!flags.hasMainContent) {
-          console.log(`   ⊗ 跳过页面 ${i + 1} (无正文内容)`);
-          continue;
-        }
-
-        // 如果页面只有版权/噪声，也跳过
-        if (flags.isEmptyOrNoise) {
-          console.log(`   ⊗ 跳过页面 ${i + 1} (空白或噪声)`);
-          continue;
-        }
-
-        console.log(`   ⊙ 解析页面 ${i + 1}/${pages.length}...`);
+        // 🎯 详细的进度信息：当前页/总页数
+        this.reportProgress(
+          currentProgress, 
+          `📄 正在解析第 ${i + 1}/${totalPagesToParse} 页正文 (原始页码: ${page.pageNumber})`
+        );
+        
+        console.log(`   ⊙ 解析页面 ${i + 1}/${totalPagesToParse} (原始页码: ${page.pageNumber})...`);
 
         // 提供上下文
         let previousContext = '';
-        if (i > 0) {
-          const prevText = pages[i - 1].text;
+        if (originalIndex > 0) {
+          const prevText = pages[originalIndex - 1].text;
           previousContext = prevText.slice(-this.config.contextOverlap!);
         }
 
@@ -143,7 +169,7 @@ export class PDFConverterService {
           }
 
           // API限流延迟
-          if (i < pages.length - 1) {
+          if (i < totalPagesToParse - 1) {
             await this.delay(500);
           }
         } catch (error) {
@@ -152,18 +178,24 @@ export class PDFConverterService {
         }
       }
 
+      this.reportProgress(85, `✓ 正文解析完成 (成功解析 ${pagesData.length} 页)`);
       console.log(`   ✓ 成功解析 ${pagesData.length} 页正文内容\n`);
 
-      // ============ 步骤5: 组织章节结构 ============
+      // ============ 步骤5: 组织章节结构 (85-90%) ============
+      this.reportProgress(85, '🏗️ 组织章节结构');
       console.log('🏗️  步骤5: 组织章节结构...');
+      
       const sections = this.structureParser.mergePages(pagesData);
+      
+      this.reportProgress(90, `✓ 章节组织完成 (共 ${sections.length} 个章节)`);
       console.log(`   ✓ 组织了 ${sections.length} 个章节\n`);
 
-      // ============ 步骤6: 提取参考文献 ============
+      // ============ 步骤6: 提取参考文献 (90-95%) ============
+      this.reportProgress(90, '📚 提取参考文献');
       console.log('📚 步骤6: 提取参考文献...');
+      
       let references = [];
       
-      // 找到包含参考文献的页面
       const referencePageIndices = pageAnalysis
         .map((flags, index) => ({ flags, index }))
         .filter(({ flags }) => flags.hasReferences)
@@ -177,9 +209,11 @@ export class PDFConverterService {
         
         try {
           references = await this.llmService.extractReferences(referencesText);
+          this.reportProgress(95, `✓ 参考文献提取完成 (${references.length} 条)`);
           console.log(`   ✓ 提取了 ${references.length} 条参考文献\n`);
         } catch (error) {
           console.error('   ✗ 参考文献提取失败:', error);
+          this.reportProgress(95, '⚠ 参考文献提取失败');
         }
       } else {
         console.log(`   ⚠ 未找到参考文献标记，尝试从PDF末尾提取`);
@@ -187,17 +221,23 @@ export class PDFConverterService {
           const referencesText = await this.pdfParser.extractReferences(filePath);
           if (referencesText) {
             references = await this.llmService.extractReferences(referencesText);
+            this.reportProgress(95, `✓ 参考文献提取完成 (${references.length} 条)`);
             console.log(`   ✓ 提取了 ${references.length} 条参考文献\n`);
+          } else {
+            this.reportProgress(95, '⚠ 未找到参考文献');
           }
         } catch (error) {
           console.error('   ✗ 参考文献提取失败:', error);
+          this.reportProgress(95, '⚠ 参考文献提取失败');
         }
       }
 
       references = this.structureParser.normalizeReferences(references);
 
-      // ============ 步骤7: 组装最终结果 ============
+      // ============ 步骤7: 组装最终结果 (95-100%) ============
+      this.reportProgress(95, '📦 组装最终结果');
       console.log('📦 步骤7: 组装最终结果...');
+      
       const paperContent = {
         abstract,
         keywords,
@@ -209,12 +249,14 @@ export class PDFConverterService {
 
       const validatedContent = this.structureParser.validateAndFix(paperContent);
 
+      this.reportProgress(100, '✅ PDF解析完成');
+
       // ============ 完成总结 ============
       console.log(`\n${'═'.repeat(60)}`);
       console.log('✅ PDF解析完成！');
       console.log(`${'═'.repeat(60)}`);
       console.log(`   📊 统计信息:`);
-      console.log(`      - 总页数: ${pages.length}`);
+      console.log(`      - 总页数: ${totalPages}`);
       console.log(`      - 解析页数: ${pagesData.length}`);
       console.log(`      - 章节数: ${validatedContent.sections.length}`);
       console.log(`      - 参考文献: ${validatedContent.references.length}`);
@@ -231,42 +273,29 @@ export class PDFConverterService {
   }
 
   /**
-   * 🆕 分析页面包含的内容类型（支持多类型）
+   * 分析页面包含的内容类型（支持多类型）
    */
   private analyzePageContent(pageText: string): PageContentFlags {
     const lowerText = pageText.toLowerCase();
     
     return {
-      // 包含大量邮箱地址 = 标题页
       hasTitle: (pageText.match(/@/g) || []).length >= 2,
-      
-      // 包含Abstract关键词
       hasAbstract: /\babstract\b/i.test(pageText),
-      
-      // 包含Keywords关键词
       hasKeywords: /\b(keywords?|index terms?|key words?)\b/i.test(pageText),
-      
-      // 包含Introduction或章节编号 = 正文
       hasMainContent: 
         /\b(introduction|methodology|method|results?|discussion|conclusion|analysis)\b/i.test(pageText) ||
-        /^\s*\d+\.?\s+[A-Z][a-z]/m.test(pageText) || // 章节编号
-        /^\s*(I{1,3}|IV|V|VI{0,3}|IX|X)\.?\s+[A-Z]/m.test(pageText), // 罗马数字章节
-      
-      // 包含References关键词
+        /^\s*\d+\.?\s+[A-Z][a-z]/m.test(pageText) ||
+        /^\s*(I{1,3}|IV|V|VI{0,3}|IX|X)\.?\s+[A-Z]/m.test(pageText),
       hasReferences: /\b(references|bibliography)\b/i.test(pageText),
-      
-      // 包含版权信息
       hasCopyright: 
         /\b(copyright|permission|acm isbn|doi:|https?:\/\/doi\.org)\b/i.test(pageText) ||
-        /^\s*\d+\s*$/m.test(pageText), // 单独的页码
-      
-      // 空白页或纯噪声
+        /^\s*\d+\s*$/m.test(pageText),
       isEmptyOrNoise: pageText.trim().length < 50
     };
   }
 
   /**
-   * 🆕 获取内容类型标签（用于日志）
+   * 获取内容类型标签（用于日志）
    */
   private getContentTypeLabels(flags: PageContentFlags): string {
     const labels: string[] = [];
@@ -287,25 +316,17 @@ export class PDFConverterService {
    */
   private filterNonContentBlocks(blocks: any[]): any[] {
     return blocks.filter(block => {
-      // 保留主要内容块
       if (['heading', 'paragraph', 'math', 'figure', 'table', 
            'code', 'ordered-list', 'unordered-list', 'quote'].includes(block.type)) {
         
         const text = this.extractBlockText(block);
         
-        // 过滤规则：元数据和噪声
         const shouldFilter = 
-          // 包含过多邮箱地址（标题页信息）
           (text.match(/@/g) || []).length > 2 ||
-          // 版权信息
           /copyright|permission|acm isbn/i.test(text) ||
-          // DOI链接（单独一行）
           /^https?:\/\/doi\.org/i.test(text.trim()) ||
-          // 单独的页码
           /^\s*\d+\s*$/.test(text) ||
-          // 会议信息（特定格式）
           /^(KDD|ICML|NeurIPS|CVPR|ICCV)\s+['']?\d{2}/i.test(text) ||
-          // 太短的内容（可能是噪声）
           text.trim().length < 10;
         
         return !shouldFilter;

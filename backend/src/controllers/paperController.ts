@@ -380,10 +380,12 @@ export async function getPaperParseStatus(req: Request, res: Response) {
     res.json({
       success: true,
       data: {
-        parseStatus: paper.parseStatus,
+        parseStatus: paper.parseStatus, // 🆕 这里会返回实时的进度状态
         job: job ? {
           id: job.id,
           status: job.status,
+          progress: job.progress,        // 🆕 添加进度百分比
+          currentStep: job.currentStep,  // 🆕 添加当前步骤
           error: job.error,
           createdAt: job.createdAt,
           startedAt: job.startedAt,
@@ -399,4 +401,3 @@ export async function getPaperParseStatus(req: Request, res: Response) {
     });
   }
 }
-

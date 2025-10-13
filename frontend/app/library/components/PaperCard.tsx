@@ -2,34 +2,83 @@
 'use client';
 
 import React from 'react';
-import { Star, Clock, FolderPlus } from 'lucide-react';
+import { Star, Clock, FolderPlus, Loader2, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { PaperMetadata } from '@neuink/shared';
 import { getStatusBadge, getPriorityBadge, getQuartileColor } from '../utils/paperHelpers';
+import { parseStatusInfo } from '../utils/parseStatusHelper';
 
 interface PaperCardProps {
   paper: PaperMetadata;
   onClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
-  onAddToChecklist?: () => void;  // 🆕 新增
+  onAddToChecklist?: () => void;
 }
 
 export default function PaperCard({ 
   paper, 
   onClick, 
   onContextMenu,
-  onAddToChecklist,  // 🆕 新增
+  onAddToChecklist,
 }: PaperCardProps) {
+  // 解析状态信息
+  const statusInfo = parseStatusInfo(paper.parseStatus);
+  const isDisabled = statusInfo.isParsing || statusInfo.isFailed;
+  
   return (
     <div
       onContextMenu={onContextMenu}
-      className="group relative rounded-xl border border-slate-200 dark:border-slate-800 p-5 hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-300 bg-white dark:bg-slate-900"
+      className={cn(
+        "group relative rounded-xl border border-slate-200 dark:border-slate-800 p-5 transition-all duration-300 bg-white dark:bg-slate-900",
+        isDisabled 
+          ? "cursor-not-allowed opacity-70" 
+          : "hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-700"
+      )}
     >
-      {/* 🆕 快捷按钮 - 悬停时显示 */}
-      {onAddToChecklist && (
+      {/* 🆕 解析中状态遮罩 */}
+      {statusInfo.isParsing && (
+        <div className="absolute inset-0 bg-white/95 dark:bg-slate-900/95 flex flex-col items-center justify-center z-20 rounded-xl backdrop-blur-sm">
+          <Loader2 className="w-8 h-8 text-blue-600 animate-spin mb-3" />
+          
+          <div className="text-center px-4 w-full max-w-xs">
+            <div className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              {statusInfo.message}
+            </div>
+            
+            {/* 进度条 */}
+            <div className="space-y-1">
+              <Progress value={statusInfo.progress} className="h-2" />
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                {statusInfo.progress}%
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🆕 解析失败状态遮罩 */}
+      {statusInfo.isFailed && (
+        <div className="absolute inset-0 bg-red-50/95 dark:bg-red-900/20 flex flex-col items-center justify-center z-20 rounded-xl backdrop-blur-sm border-2 border-red-200 dark:border-red-800">
+          <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400 mb-3" />
+          
+          <div className="text-center px-4">
+            <div className="text-sm font-medium text-red-700 dark:text-red-300 mb-1">
+              解析失败
+            </div>
+            {statusInfo.errorMessage && (
+              <div className="text-xs text-red-600 dark:text-red-400 max-w-xs line-clamp-2">
+                {statusInfo.errorMessage}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 🆕 快捷按钮 - 悬停时显示（解析时隐藏） */}
+      {onAddToChecklist && !isDisabled && (
         <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
           <TooltipProvider>
             <Tooltip>
@@ -51,10 +100,16 @@ export default function PaperCard({
       )}
 
       {/* 可点击区域 */}
-      <div onClick={onClick} className="cursor-pointer">
+      <div 
+        onClick={isDisabled ? undefined : onClick} 
+        className={isDisabled ? '' : 'cursor-pointer'}
+      >
         {/* 头部：标题和评分 */}
         <div className="flex items-start justify-between gap-3 mb-3">
-          <h3 className="font-semibold text-lg line-clamp-2 group-hover:text-blue-600 transition-colors">
+          <h3 className={cn(
+            "font-semibold text-lg line-clamp-2 transition-colors",
+            !isDisabled && "group-hover:text-blue-600"
+          )}>
             {paper.title}
           </h3>
           {paper.rating ? (

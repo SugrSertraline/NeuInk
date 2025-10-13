@@ -1,9 +1,9 @@
-// lib/api.ts 或 utils/api.ts
+// app/lib/api.ts 
 
 /**
  * API 基础配置
- * - 开发环境：使用相对路径 + Next.js rewrites 转发到后端 (3001)
- * - 生产环境：使用相对路径 + api-proxy 转发到后端 (3001)
+ * - 开发环境：直接请求后端 (http://localhost:3001)
+ * - 生产环境：使用相对路径，通过 api-proxy 转发到后端 (3001)
  */
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -13,14 +13,20 @@ export const API_BASE = (() => {
     return process.env.NEXT_PUBLIC_API_BASE;
   }
   
-  // 2. 开发环境和生产环境都使用相对路径
-  // 开发环境通过 rewrites 转发，生产环境通过 api-proxy 转发
+  // 2. 开发环境：直接请求后端完整 URL
+  //    因为 Next.js 静态导出不支持 rewrites
+  if (isDev && typeof window !== 'undefined') {
+    return 'http://localhost:3001';
+  }
+  
+  // 3. 生产环境：使用相对路径，通过 api-proxy 转发
+  //    api-proxy.js 会将 /api/* 转发到 http://localhost:3001/api/*
   return '';
 })();
 
-// 打印配置信息（仅在客户端且开发环境）
-if (typeof window !== 'undefined' && isDev) {
-  console.log('🌐 API Base URL:', API_BASE || '(相对路径)');
+// 打印配置信息（仅在客户端）
+if (typeof window !== 'undefined') {
+  console.log('🌐 API Base URL:', API_BASE || '(相对路径 - 通过 api-proxy 转发)');
   console.log('📍 Environment:', process.env.NODE_ENV);
 }
 
@@ -203,6 +209,13 @@ export function toAbsoluteUrl(url: string): string {
   
   // 相对路径转换为绝对路径
   const normalizedUrl = url.startsWith('/') ? url : `/${url}`;
+  
+  // 开发环境：拼接后端 URL
+  if (isDev && typeof window !== 'undefined') {
+    return `http://localhost:3001${normalizedUrl}`;
+  }
+  
+  // 生产环境：使用相对路径
   return `${API_BASE}${normalizedUrl}`;
 }
 
@@ -279,8 +292,6 @@ export async function apiDownloadFile(
     throw error;
   }
 }
-
-// 在 frontend/app/lib/api.ts 中添加
 
 /**
  * 获取 Blob 数据（用于文件下载）

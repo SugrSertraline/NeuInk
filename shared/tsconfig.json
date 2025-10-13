@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    // --- 以下是关键配置 ---
+    "composite": true,      // 启用项目引用模式
+    "declaration": true,    // 生成 .d.ts 类型声明文件
+    "declarationMap": true, // 生成 .d.ts.map 文件，方便调试
+    "outDir": "dist",       // 输出目录
+    "rootDir": "types"      // 源码根目录
+  },
+  "include": ["types/**/*"] // 只包含 types 目录下的文件
+}
