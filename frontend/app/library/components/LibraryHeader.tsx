@@ -3,10 +3,11 @@
 'use client';
 
 import React from 'react';
-import { Plus, Settings, ArrowUpDown } from 'lucide-react';
+import { Plus, Settings, ArrowUpDown, FileText, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import MultiSortControls, { SortRule } from './MultiSortControls';
 import ViewModeSwitcher from './ViewModeSwitcher';
 
@@ -17,6 +18,7 @@ interface LibraryHeaderProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   onCreatePaper: () => void;
+  onCreateFromMarkdown: () => void;
   showColumnConfig?: boolean;
   onToggleColumnConfig?: () => void;
   sortRules: SortRule[];
@@ -41,6 +43,7 @@ export default function LibraryHeader({
   viewMode,
   onViewModeChange,
   onCreatePaper,
+  onCreateFromMarkdown,
   showColumnConfig = false,
   onToggleColumnConfig,
   sortRules,
@@ -99,14 +102,27 @@ export default function LibraryHeader({
           </PopoverContent>
         </Popover>
 
-        {/* 新建论文 */}
-        <Button
-          onClick={onCreatePaper}
-          className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 font-medium"
-        >
-          <Plus className="w-4 h-4 text-white" />
-          <span className="text-white">新建论文</span>
-        </Button>
+
+        {/* 新建论文下拉菜单 */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 font-medium">
+              <Plus className="w-4 h-4 text-white" />
+              <span className="text-white">新建论文</span>
+              <ChevronDown className="w-4 h-4 text-white" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48 bg-white">
+            <DropdownMenuItem onClick={onCreatePaper} className="gap-2 cursor-pointer">
+              <Plus className="w-4 h-4" />
+              手动创建论文
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onCreateFromMarkdown} className="gap-2 cursor-pointer">
+              <FileText className="w-4 h-4" />
+              从 Markdown 创建
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* 列设置（仅 table 视图显示） */}
         {viewMode === 'table' && onToggleColumnConfig && (

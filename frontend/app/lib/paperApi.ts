@@ -33,8 +33,7 @@ const routes = {
   import: '/api/papers/import',
   export: '/api/papers/export',
   stats: '/api/papers/stats',
-  pdf: (id: string) => `/api/papers/${id}/pdf`,
-  parseStatus: (id: string) => `/api/papers/${id}/parse-status`,
+  fromMarkdown: '/api/papers/from-markdown', // 🆕 从Markdown创建
 };
 
 // ============ 论文基础操作 ============
@@ -91,6 +90,41 @@ export async function createPaper(
   paperData: Partial<PaperMetadata>
 ): Promise<PaperRecord> {
   return apiPost<PaperRecord>(routes.list, paperData);
+}
+
+/**
+ * 🆕 从Markdown文件创建论文
+ */
+export async function createPaperFromMarkdown(
+  markdownFile: File
+): Promise<{
+  paper: PaperRecord;
+  parsedInfo?: {
+    title?: string;
+    authors?: string[];
+    abstract?: string;
+    keywords?: string[];
+  };
+}> {
+  const formData = new FormData();
+  formData.append('markdown', markdownFile);
+  
+  const result = await apiPost<PaperRecord & {
+    parsedInfo?: {
+      title?: string;
+      authors?: string[];
+      abstract?: string;
+      keywords?: string[];
+    };
+  }>(routes.fromMarkdown, formData);
+  
+  // 分离论文数据和解析信息
+  const { parsedInfo, ...paper } = result;
+  
+  return {
+    paper,
+    parsedInfo
+  };
 }
 
 /**
@@ -193,31 +227,14 @@ export async function searchPapers(
   return response.papers;
 }
 
-/**
- * 获取论文解析状态
- */
-export async function getPaperParseStatus(paperId: string): Promise<{
-  parseStatus: string;
-  job?: {
-    id: string;
-    status: string;
-    error?: string;
-    createdAt: string;
-    startedAt?: string;
-    completedAt?: string;
-  };
-}> {
-  return apiGetData<any>(routes.parseStatus(paperId));
-}
+
 /**
  * 导出论文数据
  */
-
 export async function exportPapers(paperIds?: string[]): Promise<Blob> {
   const queryString = paperIds?.length ? `?ids=${paperIds.join(',')}` : '';
   const path = `${routes.export}${queryString}`;
   
-  // ✅ 使用封装好的 apiGetBlob
   return apiGetBlob(path);
 }
 

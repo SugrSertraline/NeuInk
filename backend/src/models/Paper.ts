@@ -114,9 +114,9 @@ export class Paper {
         id, title, short_title, authors, publication, year, date, doi,
         article_type, sci_quartile, cas_quartile, ccf_rank, impact_factor,
         tags, reading_status, priority, rating, notes,
-        reading_position, total_reading_time, last_read_time, parse_status, pdf_path,
-        created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?, ?, ?, ?, ?, ?, ?)`,
+        reading_position, total_reading_time, last_read_time,
+        parse_status, pdf_path, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       paper.id,
       paper.title,
       toNull(paper.shortTitle),
@@ -138,8 +138,8 @@ export class Paper {
       paper.readingPosition ?? 0,
       paper.totalReadingTime ?? 0,
       toNull(paper.lastReadTime),
-      toNull(paper.parseStatus) ?? 'pending', // ✅ 使用传入的值，没有时默认 'pending'
-      toNull(paper.pdfPath), // ✅ 使用传入的 pdfPath
+      'pending', // parse_status 默认值
+      null,      // pdf_path 默认值
       now,
       now
     );

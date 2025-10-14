@@ -5,6 +5,7 @@ import { X, Home, Library, FolderTree, Settings, FileText, Loader2, Minus, Squar
 import { useRouter, usePathname } from 'next/navigation';
 import { useTabStore, Tab } from '@/app/store/useTabStore';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const iconMap: Record<Tab['type'], React.ReactNode> = {
   dashboard: <Home className="w-5 h-5 transition-all duration-300" />,
@@ -212,7 +213,7 @@ export default function TabBar() {
 
 
   return (
-    <div className="h-16 flex items-center px-4 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm gap-2 overflow-hidden">
+    <div className="h-16 flex items-center px-4 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm gap-2">
       {/* 标签页列表容器 - 带渐变遮罩和箭头 */}
       <div className="relative flex-1 h-full overflow-hidden flex items-center">
         {/* 左箭头按钮 */}
@@ -243,7 +244,7 @@ export default function TabBar() {
             const isActive = tab.id === activeTabId;
             const isLoading = loadingTabId === tab.id;
             const baseBtn =
-              "relative inline-flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 text-sm font-medium group overflow-hidden flex-shrink-0";
+              "relative inline-flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 text-sm font-medium group overflow-hidden flex-shrink-0 max-w-[200px]";
             const activeStylesMap: Record<Tab['type'], string> = {
               dashboard: "bg-gradient-to-r from-[#284286] to-[#3a5ba8] text-white shadow-lg shadow-[#284286]/20 scale-[1.02]",
               library: "bg-gradient-to-r from-[#3d4d99] to-[#4a5fb3] text-white shadow-lg shadow-indigo-500/20 scale-[1.02]",
@@ -255,42 +256,49 @@ export default function TabBar() {
               "text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:shadow-md hover:scale-[1.02]";
 
             return (
-              <button
-                key={tab.id}
-                data-tab-id={tab.id}
-                onClick={() => onClickTab(tab)}
-                disabled={isLoading}
-                onMouseDown={(e) => e.stopPropagation()}
-                className={cn(
-                  baseBtn,
-                  "focus:outline-none focus-visible:outline-none focus:ring-0",
-                  isActive ? activeStylesMap[tab.type] : inactiveStyles,
-                  isLoading && "opacity-75 cursor-wait"
-                )}
-                title={tab.title}
-              >
-                {isActive && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r-full shadow-lg" />
-                )}
-
-                <span className={cn(isActive ? "scale-110" : "group-hover:scale-110")}>
-                  {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : iconMap[tab.type]}
-                </span>
-
-                <span className="flex-1 text-left whitespace-nowrap">{tab.title}</span>
-
-                {isActive && !isLoading && <div className="w-2 h-2 bg-white rounded-full animate-pulse" />}
-
-                {tab.id !== 'dashboard' && (
-                  <X
-                    onClick={(e) => onCloseTab(e, tab)}
-                    className={cn(
-                      "w-4 h-4 transition-all duration-300 hover:text-red-400",
-                      isActive ? "" : "opacity-60 group-hover:opacity-100 group-hover:scale-110"
+              <Tooltip key={tab.id}>
+                <TooltipTrigger asChild>
+                  <div className="relative group/tab">
+                    <button
+                      data-tab-id={tab.id}
+                      onClick={() => onClickTab(tab)}
+                      disabled={isLoading}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      className={cn(
+                        baseBtn,
+                        "focus:outline-none focus-visible:outline-none focus:ring-0",
+                        isActive ? activeStylesMap[tab.type] : inactiveStyles,
+                        isLoading && "opacity-75 cursor-wait"
+                      )}
+                    >
+                    {isActive && (
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r-full shadow-lg" />
                     )}
-                  />
-                )}
-              </button>
+
+                    <span className={cn(isActive ? "scale-110" : "group-hover:scale-110")}>
+                      {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : iconMap[tab.type]}
+                    </span>
+
+                      <span className="flex-1 text-left whitespace-nowrap overflow-hidden text-ellipsis">{tab.title}</span>
+
+                    {isActive && !isLoading && <div className="w-2 h-2 bg-white rounded-full animate-pulse" />}
+
+                      {tab.id !== 'dashboard' && (
+                        <X
+                          onClick={(e) => onCloseTab(e, tab)}
+                          className={cn(
+                            "w-4 h-4 transition-all duration-300 hover:text-red-400",
+                            isActive ? "" : "opacity-60 group-hover:opacity-100 group-hover:scale-110"
+                          )}
+                        />
+                      )}
+                    </button>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 border-slate-800 dark:border-slate-200">
+                  <p>{tab.title}</p>
+                </TooltipContent>
+              </Tooltip>
             );
           })}
         </div>

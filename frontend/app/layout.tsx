@@ -4,6 +4,7 @@ import "./globals.css";
 import 'katex/dist/katex.min.css';
 import MainLayout from "./components/layout/MainLayout";
 import { ThemeProvider } from "./components/ThemeProvider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -36,9 +37,11 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <ThemeProvider>
-          <MainLayout>
-            {children}
-          </MainLayout>
+          <TooltipProvider delayDuration={0}>
+            <MainLayout>
+              {children}
+            </MainLayout>
+          </TooltipProvider>
         </ThemeProvider>
       </body>
     </html>

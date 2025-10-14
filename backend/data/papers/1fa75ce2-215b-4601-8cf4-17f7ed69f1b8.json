@@ -664,8 +664,8 @@
                 "type": "text",
                 "content": "n al",
                 "style": {
-                  "bold": true,
-                  "italic": true
+                  "italic": true,
+                  "bold": true
                 }
               },
               {
@@ -673,8 +673,8 @@
                 "content": "lows the model t",
                 "style": {
                   "color": "#ef4444",
-                  "bold": true,
-                  "italic": true
+                  "italic": true,
+                  "bold": true
                 }
               },
               {
@@ -682,9 +682,9 @@
                 "content": "o jointly attend to information from dif",
                 "style": {
                   "color": "#ef4444",
-                  "bold": true,
                   "italic": true,
-                  "backgroundColor": "#fee2e2"
+                  "backgroundColor": "#fee2e2",
+                  "bold": true
                 }
               },
               {
@@ -706,14 +706,10 @@
               },
               {
                 "type": "text",
-                "content": " subspaces. The f",
+                "content": " subspaces. The formula is:",
                 "style": {
                   "bold": true
                 }
-              },
-              {
-                "type": "text",
-                "content": "ormula is:"
               }
             ]
           }
@@ -852,7 +848,50 @@
             "en": [
               {
                 "type": "text",
-                "content": "Each layer contains a fully connected feed-forward network applied to each position separately and identically:"
+                "content": "Each "
+              },
+              {
+                "type": "text",
+                "content": "layer con",
+                "style": {
+                  "bold": true
+                }
+              },
+              {
+                "type": "text",
+                "content": "t",
+                "style": {
+                  "bold": true,
+                  "color": "#ef4444"
+                }
+              },
+              {
+                "type": "text",
+                "content": "ains a fully conne",
+                "style": {
+                  "bold": true,
+                  "backgroundColor": "#fee2e2",
+                  "color": "#ef4444"
+                }
+              },
+              {
+                "type": "text",
+                "content": "cted feed-",
+                "style": {
+                  "bold": true,
+                  "backgroundColor": "#fee2e2"
+                }
+              },
+              {
+                "type": "text",
+                "content": "forwar",
+                "style": {
+                  "bold": true
+                }
+              },
+              {
+                "type": "text",
+                "content": "d network applied to each position separately and identically:"
               }
             ]
           }
@@ -1343,6 +1382,14 @@
       ],
       "createdAt": "2025-10-13T12:24:41.057Z",
       "updatedAt": "2025-10-13T12:24:41.057Z"
+    },
+    {
+      "id": "note-1760406060626-n6m8o2ayn",
+      "blockId": "block-p1-2",
+      "content": "的身份事故发生范德萨",
+      "tags": [],
+      "createdAt": "2025-10-14T01:41:00.626Z",
+      "updatedAt": "2025-10-14T01:41:00.626Z"
     }
   ],
   "checklistNotes": [],

@@ -8,7 +8,6 @@ export type PaperId = string;
 /** 块元素唯一标识 */
 export type BlockId = string;
 
-// ============= 从 shared 移过来的类型 =============
 
 /** 作者信息 */
 export interface Author {
@@ -35,6 +34,9 @@ export type ReadingStatus = 'unread' | 'reading' | 'finished';
 /** 优先级 */
 export type Priority = 'high' | 'medium' | 'low';
 
+/** 解析状态 */
+export type ParseStatus = 'pending' | 'parsing' | 'completed' | 'failed';
+
 /** 论文元数据基础接口 */
 interface PaperMetadataBase {
   id: string;
@@ -56,7 +58,7 @@ interface PaperMetadataBase {
   readingPosition?: number;
   totalReadingTime?: number;
   lastReadTime?: string;
-  parseStatus?: string;
+  parseStatus?: ParseStatus;
   pdfPath?: string;
   createdAt: string;
   updatedAt: string;
@@ -368,11 +370,8 @@ export interface BlockNote {
 
 /** 完整论文数据（JSON文件格式） */
 export interface PaperContent {
-  metadata: PaperMetadata & {
-    parseStatus?: string;
-    pdfPath?: string;
-  };
-  abstract?: {                    // 🆕 新增
+  metadata: PaperMetadata;
+  abstract?: {                    
     en?: string;
     zh?: string;
   };
@@ -381,7 +380,6 @@ export interface PaperContent {
   references: Reference[];
   blockNotes: BlockNote[];
   checklistNotes: ChecklistNote[];
-  pdfPath?: string;
   attachments?: string[];
 }
 

@@ -1,4 +1,4 @@
-// app/library/page.tsx - 修复布局版本
+// app/library/page.tsx - 添加 Markdown 创建功能
 
 'use client';
 
@@ -19,6 +19,8 @@ import PaperTable from './components/PaperTable';
 import ContextMenuWrapper from './components/ContextMenu';
 import EmptyState from './components/EmptyState';
 import PaperDialog from './components/PaperDialog';
+import CreatePaperDialog from './components/CreatePaperDialog';
+import MarkdownPaperDialog from './components/MarkdownPaperDialog';
 import Pagination from './components/Pagination';
 import ColumnConfigSheet from './components/ColumnConfigSheet';
 import { SortRule } from './components/MultiSortControls';
@@ -37,11 +39,14 @@ export default function LibraryPage() {
   const [showAdvancedFilter, setShowAdvancedFilter] = React.useState(false);
   const [showColumnConfig, setShowColumnConfig] = React.useState(false);
   const [showPaperDialog, setShowPaperDialog] = React.useState(false);
+  const [showCreateDialog, setShowCreateDialog] = React.useState(false);
+  const [showMarkdownDialog, setShowMarkdownDialog] = React.useState(false);
   const [dialogMode, setDialogMode] = React.useState<'create' | 'edit'>('create');
   const [selectedPaper, setSelectedPaper] = React.useState<PaperMetadata | null>(null);
- // 🆕 添加到清单对话框状态
- const [showAddToChecklistDialog, setShowAddToChecklistDialog] = React.useState(false);
- const [selectedPaperForChecklist, setSelectedPaperForChecklist] = React.useState<PaperMetadata | null>(null);
+  
+  // 添加到清单对话框状态
+  const [showAddToChecklistDialog, setShowAddToChecklistDialog] = React.useState(false);
+  const [selectedPaperForChecklist, setSelectedPaperForChecklist] = React.useState<PaperMetadata | null>(null);
 
   // 统一的筛选状态
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -115,17 +120,21 @@ export default function LibraryPage() {
   const handlePaperDialogSuccess = async () => {
     setRefreshKey(k => k + 1);
   };
-  // 🆕 添加处理函数
+
+
   const handleAddToChecklist = (paper: PaperMetadata) => {
     setSelectedPaperForChecklist(paper);
     setShowAddToChecklistDialog(true);
   };
 
   const handleCreatePaper = () => {
-    setDialogMode('create');
-    setSelectedPaper(null);
-    setShowPaperDialog(true);
+    setShowCreateDialog(true);
   };
+
+  const handleCreateFromMarkdown = () => {
+    setShowMarkdownDialog(true);
+  };
+
 
   const toggleColumn = (key: string) => {
     const next = new Set(visibleColumns);
@@ -190,6 +199,7 @@ export default function LibraryPage() {
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             onCreatePaper={handleCreatePaper}
+            onCreateFromMarkdown={handleCreateFromMarkdown}
             showColumnConfig={showColumnConfig}
             onToggleColumnConfig={() => setShowColumnConfig(!showColumnConfig)}
             sortRules={sortRules}
@@ -272,7 +282,21 @@ export default function LibraryPage() {
         </div>
       )}
 
-      {/* 论文对话框 */}
+      {/* 创建论文对话框 */}
+      <CreatePaperDialog
+        open={showCreateDialog}
+        onClose={() => setShowCreateDialog(false)}
+        onSuccess={handlePaperDialogSuccess}
+      />
+
+      {/* Markdown 创建论文对话框 */}
+      <MarkdownPaperDialog
+        open={showMarkdownDialog}
+        onClose={() => setShowMarkdownDialog(false)}
+        onSuccess={handlePaperDialogSuccess}
+      />
+
+      {/* 编辑论文对话框 */}
       <PaperDialog
         open={showPaperDialog}
         mode={dialogMode}
@@ -283,6 +307,7 @@ export default function LibraryPage() {
         }}
         onSuccess={handlePaperDialogSuccess}
       />
+
 
       {/* 列设置侧边栏 */}
       <ColumnConfigSheet
@@ -297,6 +322,8 @@ export default function LibraryPage() {
           setVisibleColumns(defaultVisible);
         }}
       />
+
+      {/* 添加到清单对话框 */}
       {showAddToChecklistDialog && selectedPaperForChecklist && (
         <AddToChecklistDialog
           open={showAddToChecklistDialog}
@@ -327,8 +354,7 @@ function PapersSection(props: {
   onYearsUpdate: (years: (number | undefined)[]) => void;
   onOpenPaper: (p: PaperMetadata) => void;
   onEditRequested: (p: PaperMetadata) => void;
-  onAddToChecklist: (p: PaperMetadata) => void;  // 🆕 新增
-
+  onAddToChecklist: (p: PaperMetadata) => void;
 }) {
   const {
     viewMode,

@@ -24,16 +24,6 @@ console.log('═'.repeat(60));
 console.log(`   PORT: ${process.env.PORT || '3001 (默认)'}`);
 console.log(`   NODE_ENV: ${process.env.NODE_ENV || 'development (默认)'}`);
 
-const hasApiKey = !!process.env.DEEPSEEK_API_KEY;
-if (hasApiKey) {
-  const key = process.env.DEEPSEEK_API_KEY!;
-  const maskedKey = `${key.substring(0, 10)}...${key.substring(key.length - 4)}`;
-  console.log(`   DEEPSEEK_API_KEY: ${maskedKey} ✓`);
-} else {
-  console.log(`   DEEPSEEK_API_KEY: 未设置 ⚠️`);
-  console.log(`   ⚠️  警告: PDF解析功能将不可用`);
-  console.log(`   💡 请在 .env 文件中添加: DEEPSEEK_API_KEY=sk-your-key`);
-}
 console.log('═'.repeat(60) + '\n');
 
 // ============ 中间件 ============
@@ -57,8 +47,7 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     environment: {
       nodeEnv: process.env.NODE_ENV || 'development',
-      port: PORT,
-      pdfParseEnabled: hasApiKey
+      port: PORT
     }
   });
 });
@@ -102,16 +91,6 @@ async function startServer() {
     await initFileSystem();
     console.log('   ✓ 文件系统初始化完成\n');
     
-    // 3. 验证PDF解析服务
-    if (hasApiKey) {
-      console.log('🤖 PDF解析服务状态: 已启用 ✓');
-      console.log('   - 支持自动解析上传的PDF文件');
-      console.log('   - 自动提取摘要、章节、参考文献\n');
-    } else {
-      console.log('⚠️  PDF解析服务状态: 未启用');
-      console.log('   - 请设置 DEEPSEEK_API_KEY 环境变量');
-      console.log('   - 论文创建功能仍可使用，但无法自动解析PDF\n');
-    }
 
     // 4. 启动HTTP服务器
     app.listen(PORT, () => {
