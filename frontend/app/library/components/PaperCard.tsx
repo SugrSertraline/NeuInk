@@ -16,6 +16,7 @@ interface PaperCardProps {
   onClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
   onAddToChecklist?: () => void;
+  parseProgress?: { percentage: number; message: string } | null; // 🆕 实时进度
 }
 
 export default function PaperCard({ 
@@ -23,9 +24,17 @@ export default function PaperCard({
   onClick, 
   onContextMenu,
   onAddToChecklist,
+  parseProgress, // 🆕
 }: PaperCardProps) {
-  // 解析状态信息
-  const statusInfo = parseStatusInfo(paper.parseStatus);
+  // 解析状态信息，优先使用实时进度
+  const statusInfo = parseProgress 
+    ? {
+        ...parseStatusInfo(paper.parseStatus, paper.remarks),
+        progress: parseProgress.percentage,
+        message: parseProgress.message,
+      }
+    : parseStatusInfo(paper.parseStatus, paper.remarks);
+    
   const isDisabled = statusInfo.isParsing || statusInfo.isFailed;
   
   return (
@@ -135,17 +144,17 @@ export default function PaperCard({
 
         {/* 分区和影响因子 */}
         <div className="flex flex-wrap gap-2 mb-3">
-          {paper.sciQuartile && (
+          {paper.sciQuartile && paper.sciQuartile !== '无' && (
             <Badge className={cn('text-xs', getQuartileColor(paper.sciQuartile))}>
               SCI {paper.sciQuartile}
             </Badge>
           )}
-          {paper.casQuartile && (
+          {paper.casQuartile && paper.casQuartile !== '无' && (
             <Badge className={cn('text-xs', getQuartileColor(paper.casQuartile))}>
               中科院 {paper.casQuartile}
             </Badge>
           )}
-          {paper.ccfRank && (
+          {paper.ccfRank && paper.ccfRank !== '无' && (
             <Badge className="text-xs bg-purple-50 text-purple-700">
               CCF {paper.ccfRank}
             </Badge>

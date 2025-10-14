@@ -24,6 +24,7 @@ interface PaperTableProps {
   onPaperClick: (paper: PaperMetadata) => void;
   onEdit: (paper: PaperMetadata) => void;
   onDelete: (paper: PaperMetadata) => Promise<void>;
+  progressMap?: Map<string, { percentage: number; message: string }>; // 🆕
 }
 
 // 未填写提示组件
@@ -39,6 +40,7 @@ export default function PaperTable({
   onPaperClick,
   onEdit,
   onDelete,
+  progressMap, // 🆕
 }: PaperTableProps) {
   return (
     <div className="border rounded-lg overflow-hidden bg-white dark:bg-slate-900">
@@ -64,8 +66,16 @@ export default function PaperTable({
           {/* 表体 */}
           <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
             {papers.map((p) => {
-              // 解析状态信息
-              const statusInfo = parseStatusInfo(p.parseStatus);
+              // 🆕 解析状态信息，优先使用实时进度
+              const realtimeProgress = progressMap?.get(p.id);
+              const statusInfo = realtimeProgress 
+                ? {
+                    ...parseStatusInfo(p.parseStatus, p.remarks),
+                    progress: realtimeProgress.percentage,
+                    message: realtimeProgress.message,
+                  }
+                : parseStatusInfo(p.parseStatus, p.remarks);
+                
               const isDisabled = statusInfo.isParsing || statusInfo.isFailed;
               
               return (
@@ -202,17 +212,17 @@ export default function PaperTable({
                           <td className="p-3">
                             {(p.sciQuartile || p.casQuartile || p.ccfRank) ? (
                               <div className="flex flex-col gap-1">
-                                {p.sciQuartile && (
+                                {p.sciQuartile && p.sciQuartile !== '无' && (
                                   <Badge className={cn('text-xs w-fit', getQuartileColor(p.sciQuartile))}>
                                     SCI {p.sciQuartile}
                                   </Badge>
                                 )}
-                                {p.casQuartile && (
+                                {p.casQuartile && p.casQuartile !== '无' && (
                                   <Badge className={cn('text-xs w-fit', getQuartileColor(p.casQuartile))}>
                                     中科院 {p.casQuartile}
                                   </Badge>
                                 )}
-                                {p.ccfRank && (
+                                {p.ccfRank && p.ccfRank !== '无' && (
                                   <Badge className="text-xs w-fit bg-purple-50 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
                                     CCF {p.ccfRank}
                                   </Badge>

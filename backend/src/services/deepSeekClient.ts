@@ -85,7 +85,7 @@ export class DeepSeekClient {
             'Accept': 'application/json',
             'Authorization': `Bearer ${this.config.apiKey}`
           },
-          timeout: 60000 // 60秒超时
+          timeout: 6000000
         }
       );
 

@@ -14,11 +14,24 @@ interface PaperListItemProps {
   paper: PaperMetadata;
   onClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
+  parseProgress?: { percentage: number; message: string } | null; // 🆕
 }
 
-export default function PaperListItem({ paper, onClick, onContextMenu }: PaperListItemProps) {
-  // 解析状态信息
-  const statusInfo = parseStatusInfo(paper.parseStatus);
+export default function PaperListItem({ 
+  paper, 
+  onClick, 
+  onContextMenu,
+  parseProgress, // 🆕
+}: PaperListItemProps) {
+  // 解析状态信息，优先使用实时进度
+  const statusInfo = parseProgress 
+    ? {
+        ...parseStatusInfo(paper.parseStatus, paper.remarks),
+        progress: parseProgress.percentage,
+        message: parseProgress.message,
+      }
+    : parseStatusInfo(paper.parseStatus, paper.remarks);
+    
   const isDisabled = statusInfo.isParsing || statusInfo.isFailed;
   
   return (

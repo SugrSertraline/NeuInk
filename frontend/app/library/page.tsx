@@ -1,4 +1,4 @@
-// app/library/page.tsx - 添加 Markdown 创建功能
+// app/library/page.tsx - 添加进度轮询功能
 
 'use client';
 
@@ -9,6 +9,7 @@ import type { PaperMetadata, PaperRecord } from '@/app/types/paper';
 import { useTabStore } from '../store/useTabStore';
 import { TABLE_COLUMNS } from './utils/paperHelpers';
 import { paperRecordsToMetadata } from '@/app/lib/paperConverters';
+import { useBatchParseProgress } from './hooks/useParseProgress'; // 🆕
 
 // 组件
 import LibraryHeader from './components/LibraryHeader';
@@ -121,7 +122,6 @@ export default function LibraryPage() {
     setRefreshKey(k => k + 1);
   };
 
-
   const handleAddToChecklist = (paper: PaperMetadata) => {
     setSelectedPaperForChecklist(paper);
     setShowAddToChecklistDialog(true);
@@ -134,7 +134,6 @@ export default function LibraryPage() {
   const handleCreateFromMarkdown = () => {
     setShowMarkdownDialog(true);
   };
-
 
   const toggleColumn = (key: string) => {
     const next = new Set(visibleColumns);
@@ -261,6 +260,10 @@ export default function LibraryPage() {
               setShowPaperDialog(true);
             }}
             onAddToChecklist={handleAddToChecklist}
+            onParsingComplete={() => {
+              // 🆕 当任何论文解析完成时，刷新列表
+              setRefreshKey(k => k + 1);
+            }}
           />
         </div>
       </div>
@@ -308,7 +311,6 @@ export default function LibraryPage() {
         onSuccess={handlePaperDialogSuccess}
       />
 
-
       {/* 列设置侧边栏 */}
       <ColumnConfigSheet
         open={showColumnConfig}
@@ -355,6 +357,7 @@ function PapersSection(props: {
   onOpenPaper: (p: PaperMetadata) => void;
   onEditRequested: (p: PaperMetadata) => void;
   onAddToChecklist: (p: PaperMetadata) => void;
+  onParsingComplete: () => void; // 🆕
 }) {
   const {
     viewMode,
@@ -367,12 +370,27 @@ function PapersSection(props: {
     onYearsUpdate,
     onOpenPaper,
     onEditRequested,
-    onAddToChecklist
+    onAddToChecklist,
+    onParsingComplete, // 🆕
   } = props;
 
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [papers, setPapers] = React.useState<PaperMetadata[]>([]);
+
+  // 🆕 提取正在解析的论文ID列表
+  const parsingPaperIds = React.useMemo(() => {
+    return papers
+      .filter(p => p.parseStatus === 'pending' || p.parseStatus === 'parsing')
+      .map(p => p.id);
+  }, [papers]);
+
+  // 🆕 批量轮询解析进度
+  const { progressMap } = useBatchParseProgress(parsingPaperIds, {
+    enabled: parsingPaperIds.length > 0,
+    interval: 3000,
+    onAnyComplete: onParsingComplete,
+  });
 
   const loadPapers = React.useCallback(async () => {
     try {
@@ -458,44 +476,56 @@ function PapersSection(props: {
     <>
       {viewMode === 'card' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-          {papers.map((paper) => (
-            <ContextMenuWrapper
-              key={paper.id}
-              paper={paper}
-              onViewDetails={() => onOpenPaper(paper)}
-              onEdit={() => onEditRequested(paper)}
-              onDelete={() => handleDelete(paper)}
-              onAddToChecklist={() => onAddToChecklist(paper)}  
-            >
-              <PaperCard
+          {papers.map((paper) => {
+            // 🆕 获取实时进度
+            const progress = progressMap.get(paper.id);
+            
+            return (
+              <ContextMenuWrapper
+                key={paper.id}
                 paper={paper}
-                onClick={() => onOpenPaper(paper)}
-                onContextMenu={() => {}}
-                onAddToChecklist={() => onAddToChecklist(paper)} 
-              />
-            </ContextMenuWrapper>
-          ))}
+                onViewDetails={() => onOpenPaper(paper)}
+                onEdit={() => onEditRequested(paper)}
+                onDelete={() => handleDelete(paper)}
+                onAddToChecklist={() => onAddToChecklist(paper)}
+              >
+                <PaperCard
+                  paper={paper}
+                  onClick={() => onOpenPaper(paper)}
+                  onContextMenu={() => {}}
+                  onAddToChecklist={() => onAddToChecklist(paper)}
+                  parseProgress={progress || null} // 🆕 传递实时进度
+                />
+              </ContextMenuWrapper>
+            );
+          })}
         </div>
       )}
 
       {viewMode === 'compact' && (
         <div className="space-y-2">
-          {papers.map((paper) => (
-            <ContextMenuWrapper
-              key={paper.id}
-              paper={paper}
-              onViewDetails={() => onOpenPaper(paper)}
-              onEdit={() => onEditRequested(paper)}
-              onDelete={() => handleDelete(paper)}
-              onAddToChecklist={() => onAddToChecklist(paper)}
-            >
-              <PaperListItem
+          {papers.map((paper) => {
+            // 🆕 获取实时进度
+            const progress = progressMap.get(paper.id);
+            
+            return (
+              <ContextMenuWrapper
+                key={paper.id}
                 paper={paper}
-                onClick={() => onOpenPaper(paper)}
-                onContextMenu={() => {}}
-              />
-            </ContextMenuWrapper>
-          ))}
+                onViewDetails={() => onOpenPaper(paper)}
+                onEdit={() => onEditRequested(paper)}
+                onDelete={() => handleDelete(paper)}
+                onAddToChecklist={() => onAddToChecklist(paper)}
+              >
+                <PaperListItem
+                  paper={paper}
+                  onClick={() => onOpenPaper(paper)}
+                  onContextMenu={() => {}}
+                  parseProgress={progress || null} // 🆕 传递实时进度
+                />
+              </ContextMenuWrapper>
+            );
+          })}
         </div>
       )}
 
@@ -506,6 +536,7 @@ function PapersSection(props: {
           onPaperClick={onOpenPaper}
           onEdit={onEditRequested}
           onDelete={handleDelete}
+          progressMap={progressMap} // 🆕 传递进度映射
         />
       )}
     </>
