@@ -9,7 +9,7 @@ interface PaperMetadataProps {
   content: PaperContent;  
 }
 export default function PaperMetadata({ content }: PaperMetadataProps) {
-  const { metadata, abstract, keywords } = content;  // 🆕 解构
+  const { metadata, abstract, keywords } = content;  
   
   return (
     <div className="mb-12 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">

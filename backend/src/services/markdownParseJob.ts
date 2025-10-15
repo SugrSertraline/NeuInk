@@ -4,6 +4,7 @@ import { AIMarkdownParser } from './aiMarkdownParser';
 import { createDeepSeekClient } from './deepSeekClient';
 import { Paper } from '../models/Paper';
 import { ParseProgress } from '../types/parseJob';
+import { ArticleType, Section } from '../types/paper';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -30,7 +31,7 @@ export async function startMarkdownParseJob(
   const markdownDir = path.join(__dirname, '../../data/markdown-cache');
   await fs.mkdir(markdownDir, { recursive: true });
   const markdownPath = path.join(markdownDir, `${paperId}.md`);
-  
+
   try {
     await fs.writeFile(markdownPath, markdownContent, 'utf-8');
     console.log(`📁 已缓存原始文件: ${markdownPath}`);
@@ -98,13 +99,15 @@ export async function startMarkdownParseJob(
     console.log(`📊 解析结果统计:`);
     console.log(`   ├─ 标题: ${metadata.title}`);
     console.log(`   ├─ 作者: ${metadata.authors?.length || 0} 人`);
+    console.log(`   ├─ 期刊: ${metadata.journal || '无'}`);
+    console.log(`   ├─ 年份: ${metadata.year || '无'}`);
     console.log(`   ├─ DOI: ${metadata.doi || '无'}`);
     console.log(`   ├─ 章节: ${content.sections.length} 个`);
     console.log(`   ├─ 参考文献: ${content.references.length} 篇`);
     console.log(`   ├─ 关键词: ${content.keywords?.length || 0} 个`);
-    
-    // 统计图片数量
-    const figureCount = content.sections.reduce((count, section) => {
+
+    // 统计图片数量（添加类型注解）
+    const figureCount = content.sections.reduce((count: number, section: Section) => {
       return count + countFiguresInSection(section);
     }, 0);
     console.log(`   └─ 图片: ${figureCount} 张\n`);
@@ -115,14 +118,14 @@ export async function startMarkdownParseJob(
       // 元数据字段
       title: metadata.title || '未知标题',
       authors: JSON.stringify(metadata.authors || []),
-      publication: metadata.publication || undefined,
+      publication: metadata.journal || undefined,
       year: metadata.year || undefined,
       doi: metadata.doi || undefined,
-      articleType: metadata.articleType || 'journal',
-      
+      articleType: metadata.articleType as ArticleType || undefined,
+
       // 解析状态
       parseStatus: 'completed',
-      
+
       // 备注信息
       remarks: JSON.stringify({
         parseProgress: {
@@ -148,7 +151,7 @@ export async function startMarkdownParseJob(
     const jsonDir = path.join(__dirname, '../../data/papers');
     await fs.mkdir(jsonDir, { recursive: true });
     const jsonPath = path.join(jsonDir, `${paperId}.json`);
-    
+
     await fs.writeFile(
       jsonPath,
       JSON.stringify(content, null, 2),
@@ -194,7 +197,7 @@ export async function startMarkdownParseJob(
 
     // 清理内存中的进度信息
     parseJobs.delete(paperId);
-    
+
     throw error;
   }
 }
@@ -202,21 +205,21 @@ export async function startMarkdownParseJob(
 /**
  * 递归统计章节中的图片数量
  */
-function countFiguresInSection(section: any): number {
+function countFiguresInSection(section: Section): number {
   let count = 0;
-  
+
   // 统计当前章节的图片
   if (section.content && Array.isArray(section.content)) {
-    count += section.content.filter((block: any) => block.type === 'figure').length;
+    count += section.content.filter(block => block.type === 'figure').length;
   }
-  
+
   // 递归统计子章节的图片
   if (section.subsections && Array.isArray(section.subsections)) {
     for (const subsection of section.subsections) {
       count += countFiguresInSection(subsection);
     }
   }
-  
+
   return count;
 }
 
@@ -247,7 +250,7 @@ export async function retryMarkdownParseJob(paperId: string): Promise<boolean> {
     '../../data/markdown-cache',
     `${paperId}.md`
   );
-  
+
   try {
     // 读取缓存的 Markdown 文件
     const markdownContent = await fs.readFile(markdownPath, 'utf-8');
@@ -282,7 +285,7 @@ export async function retryMarkdownParseJob(paperId: string): Promise<boolean> {
     console.error(`   文件路径: ${markdownPath}`);
     console.error(`   错误信息:`, error);
     console.error(`\n⚠️  提示: 原始文件可能已被删除，请重新上传 Markdown 文件\n`);
-    
+
     return false;
   }
 }
@@ -295,14 +298,14 @@ export async function retryMarkdownParseJob(paperId: string): Promise<boolean> {
 export async function cleanParseCache(paperId: string): Promise<void> {
   // 清理内存进度
   parseJobs.delete(paperId);
-  
+
   // 删除缓存的 Markdown 文件
   const markdownPath = path.join(
     __dirname,
     '../../data/markdown-cache',
     `${paperId}.md`
   );
-  
+
   try {
     await fs.unlink(markdownPath);
     console.log(`✓ 已清理解析缓存: ${paperId}`);

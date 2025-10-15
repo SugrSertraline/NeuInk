@@ -10,7 +10,80 @@ import { randomUUID } from 'crypto';
 import { recordToMetadata, metadataToRecord } from '../utils/paperMapper';
 import { PaperContent } from '../types/paper';
 import { getParseJobProgress, retryMarkdownParseJob, startMarkdownParseJob } from '../services/markdownParseJob';
-import { validateMarkdownFile } from '../services/aiMarkdownParser';
+
+/**
+ * ===== 工具函数：Markdown 文件验证 =====
+ */
+interface ValidationResult {
+  valid: boolean;
+  error?: string;
+}
+
+function validateMarkdownFile(filename: string, content: string): ValidationResult {
+  // 1. 验证文件名后缀
+  if (!filename.match(/\.(md|markdown)$/i)) {
+    return {
+      valid: false,
+      error: '文件格式不正确，请上传 .md 或 .markdown 文件'
+    };
+  }
+
+  // 2. 验证内容不为空
+  if (!content || content.trim().length === 0) {
+    return {
+      valid: false,
+      error: 'Markdown 文件内容为空'
+    };
+  }
+
+  // 3. 验证内容长度（最小 50 字符，最大 50MB）
+  if (content.length < 50) {
+    return {
+      valid: false,
+      error: 'Markdown 文件内容过短，请确保文件包含有效的论文内容'
+    };
+  }
+
+  const MAX_SIZE = 50 * 1024 * 1024; // 50MB
+  if (content.length > MAX_SIZE) {
+    return {
+      valid: false,
+      error: `文件过大，最大支持 ${MAX_SIZE / 1024 / 1024}MB`
+    };
+  }
+
+  // 4. 简单的 Markdown 格式检测（至少包含标题或段落）
+  const hasMarkdownStructure = 
+    content.includes('#') ||           // 标题
+    content.includes('\n\n') ||        // 段落分隔
+    content.match(/^\s*[-*+]\s/m) ||   // 列表
+    content.includes('```');           // 代码块
+
+  if (!hasMarkdownStructure) {
+    return {
+      valid: false,
+      error: 'Markdown 文件格式不正确，请确保包含有效的 Markdown 标记（如标题、段落等）'
+    };
+  }
+
+  // 5. 检测是否可能是学术论文（可选，宽松检测）
+  const academicKeywords = [
+    'abstract', 'introduction', 'method', 'result', 'conclusion',
+    'reference', 'bibliography', 'keyword', 'author',
+    '摘要', '引言', '方法', '结果', '结论', '参考文献', '关键词'
+  ];
+
+  const lowerContent = content.toLowerCase();
+  const hasAcademicContent = academicKeywords.some(keyword => 
+    lowerContent.includes(keyword.toLowerCase())
+  );
+
+  if (!hasAcademicContent) {
+    console.warn('⚠️  警告：文件可能不是学术论文格式，但仍将继续处理');
+  }
+
+  return { valid: true };
+}
 
 /**
  * 获取所有论文列表 - 支持多级排序
@@ -379,6 +452,9 @@ export async function getPaperChecklists(req: Request, res: Response) {
   }
 }
 
+/**
+ * 从 Markdown 文件创建论文
+ */
 export async function createPaperFromMarkdown(req: Request, res: Response) {
   try {
     if (!req.file) {
@@ -521,7 +597,7 @@ export async function getPaperParseProgress(req: Request, res: Response) {
 }
 
 /**
- * 🆕 重新解析论文（完善版）
+ * 重新解析论文
  */
 export async function retryParsePaper(req: Request, res: Response) {
   try {

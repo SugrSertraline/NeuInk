@@ -80,7 +80,6 @@ export default function PaperPage({ params }: { params: Promise<{ id: string }> 
     return sections.some(checkSection);
   };
 
-  // 🆕 当 content 变化时，自动计算编号
   useEffect(() => {
     if (content) {
       const numbered = calculateAllNumbers(content);

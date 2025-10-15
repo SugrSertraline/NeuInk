@@ -1,7 +1,5 @@
-// backend/src/services/aiMarkdownParser.ts
-
+// ===== aiMarkdownParser.ts =====
 import { DeepSeekClient } from './deepSeekClient';
-import { MarkupParser } from './markupParser';
 import { ParseProgress, ParseJobStatus, ParseStatusMessages } from '../types/parseJob';
 import { BlockContent, Section, Reference } from '../types/paper';
 import { randomUUID } from 'crypto';
@@ -9,56 +7,391 @@ import axios from 'axios';
 import fs from 'fs/promises';
 import path from 'path';
 
-// ========== 辅助函数 ==========
+import {
+  LineScanner, toLines, normalizeMarkdown, uid,
+  reflowParagraphLines, estimateTokens, isBlank
+} from './parsers/progressiveScanner';
 
-function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4);
-}
+import {
+  parseHeading, parseParagraph, parseCodeBlock, parseTable,
+  parseImage, parseBlockquote, parseDivider, parseBlockMath,
+  parseList, toInline
+} from './parsers/elementDetectors';
 
+// ========= 语言检测 =========
 function detectLanguage(text: string): 'en' | 'zh' | 'mixed' {
   if (!text || text.trim().length === 0) return 'en';
-  
   const chineseChars = text.match(/[\u4e00-\u9fa5]/g);
   const chineseCount = chineseChars ? chineseChars.length : 0;
-  
   const englishChars = text.match(/[a-zA-Z]/g);
   const englishCount = englishChars ? englishChars.length : 0;
-  
   const totalChars = chineseCount + englishCount;
   if (totalChars === 0) return 'en';
-  
   const chineseRatio = chineseCount / totalChars;
-  
-  if (chineseRatio > 0.3) {
-    return chineseRatio > 0.7 ? 'zh' : 'mixed';
-  }
-  
+  if (chineseRatio > 0.3) return chineseRatio > 0.7 ? 'zh' : 'mixed';
   return 'en';
 }
 
-interface ChunkInfo {
-  content: string;
-  index: number;
-  startLine: number;
-  endLine: number;
-  lastSentence?: string; // 上一个块的最后一句
+/** ===== 标题上下文管理器 ===== */
+class HeadingContext {
+  private headings: { level: number; title: string }[] = [];
+
+  update(level: number, title: string) {
+    this.headings = this.headings.filter(h => h.level < level);
+    this.headings.push({ level, title });
+  }
+
+  getContext(): string {
+    if (this.headings.length === 0) return '';
+    return this.headings.map(h => `${'#'.repeat(h.level)} ${h.title}`).join(' > ');
+  }
+
+  getCurrentLevel(): number {
+    return this.headings.length > 0 ? this.headings[this.headings.length - 1].level : 0;
+  }
 }
 
-/**
- * AI Markdown 解析器（优化版）
- */
+/** ===== 智能文本合并策略 ===== */
+class SmartMerger {
+  /**
+   * 🔧 FIX #1: 作者信息专用合并策略
+   * 检测连续的作者-单位-邮箱模式，合并成一个完整块
+   */
+  static mergeAuthorBlock(scanner: LineScanner): string {
+    const lines: string[] = [];
+    let consecutiveBlankLines = 0;
+    
+    while (!scanner.eof()) {
+      const line = scanner.peek();
+      if (!line) break;
+      
+      const text = line.raw.trim();
+      
+      // 遇到明显的新块标记，停止
+      if (/^#{1,6}\s+(Abstract|Introduction|Keywords)/i.test(text)) {
+        break;
+      }
+      
+      // 空行处理：连续2个空行则停止
+      if (isBlank(text)) {
+        consecutiveBlankLines++;
+        if (consecutiveBlankLines >= 2) break;
+        scanner.next();
+        continue;
+      }
+      
+      consecutiveBlankLines = 0;
+      
+      // 检测是否是作者信息模式
+      const isAuthorPattern = (
+        /^[A-Z][a-z]+(\s+[A-Z][a-z]+)*\*?$/.test(text) ||  // 人名
+        /University|Institute|College|Laboratory|Department|Academy|School/i.test(text) ||  // 单位
+        /@/.test(text) ||  // 邮箱
+        /^[A-Z][a-z]+,\s+[A-Z][a-z]+/.test(text)  // 城市, 国家
+      );
+      
+      if (!isAuthorPattern && lines.length > 0) {
+        // 如果不是作者模式且已有内容，停止
+        break;
+      }
+      
+      lines.push(text);
+      scanner.next();
+      
+      // 如果已经累积足够内容（约3-5个作者信息），先返回
+      if (lines.length >= 15) break;
+    }
+    
+    return lines.join('\n');
+  }
+
+  /**
+   * 🔧 FIX #2: 关键词专用合并
+   * 检测 Keywords 标题后的内容
+   */
+  static mergeKeywordsBlock(scanner: LineScanner): string {
+    const lines: string[] = [];
+    
+    while (!scanner.eof() && lines.length < 5) {
+      const line = scanner.peek();
+      if (!line) break;
+      
+      const text = line.raw.trim();
+      if (isBlank(text)) {
+        scanner.next();
+        break;  // 关键词通常是单行或少量行
+      }
+      
+      // 遇到新标题停止
+      if (/^#{1,6}\s+/.test(text) || /^\d+\.?\s+[A-Z]/.test(text)) {
+        break;
+      }
+      
+      lines.push(text);
+      scanner.next();
+      
+      // 如果包含逗号分隔的关键词，可能已经完整
+      if (text.includes(',') && lines.length >= 1) break;
+    }
+    
+    return lines.join(' ');
+  }
+}
+
+/** ===== LLM 批量分类结果 ===== */
+type LlmClassResult = {
+  type: 'title' | 'author' | 'affiliation' | 'email' | 'journal' | 'date' |
+        'abstract-heading' | 'keywords-heading' | 'ccs-heading' | 'acmref-heading' |
+        'references-heading' | 'acknowledgments-heading' |
+        'heading' | 'paragraph' | 'metadata' | 'ignore' | 'other';
+  confidence?: number;
+  reasoning?: string;
+};
+
+/** ===== 改进的 LLM 分类 Prompt ===== */
+async function classifyTextBatchLLM(
+  client: DeepSeekClient, 
+  text: string, 
+  headingContext: string
+): Promise<LlmClassResult> {
+  const sys = 'You are an expert academic paper structure analyzer. Return ONLY valid JSON.';
+  
+  // 🔧 FIX: 优化 Prompt，增加更详细的规则和示例
+  const prompt = `Analyze this text segment from an academic paper and classify it precisely.
+
+**Current Section Context:** ${headingContext || '<Document Start - Front Matter>'}
+
+**Text to Classify:**
+"""
+${text}
+"""
+
+**Classification Rules:**
+
+1. **title** - Paper main title (usually first text, often capitalized, 5-20 words)
+   Example: "Attention Is All You Need"
+
+2. **author** - Author names, possibly with asterisks (*)
+   Pattern: Capitalized names, may include multiple people separated by newlines
+   Example: "Yang Zhang*\nWenbo Yang\nJun Wang*"
+
+3. **affiliation** - Institution names
+   Keywords: University, Institute, College, Laboratory, Department, Academy, Center
+   Pattern: Often appears after author names
+   Example: "Southwestern University of Finance and Economics\nChengdu, China"
+
+4. **email** - Email addresses (contains @)
+   Example: "zhang.yang@example.edu"
+
+5. **journal** - Conference/journal name with venue and year
+   Pattern: Conference acronym + year + location OR Journal name + volume
+   Example: "KDD '25, August 3-7, 2025, Toronto, Canada"
+
+6. **date** - Publication date
+   Example: "August 2025" or "2025-08-15"
+
+7. **abstract-heading** - Abstract section header
+   Exact match: "ABSTRACT" or "Abstract" (case-insensitive, standalone)
+
+8. **keywords-heading** - Keywords section header
+   Exact match: "KEYWORDS" or "Keywords" or "Key words" (standalone line)
+
+9. **keywords-content** - **NEW TYPE** Comma-separated keyword list
+   Pattern: Technical terms separated by commas/semicolons
+   Example: "Multimodal learning, Causal Learning, Financial dataset, Timeseries Forecasting"
+
+10. **paragraph** - Normal body text, sentences with proper grammar
+
+11. **heading** - Section/subsection titles
+    Pattern: Starts with # or numbers (1., 1.1, etc.) or capitalized standalone line
+    Example: "# Introduction" or "1. Introduction" or "INTRODUCTION"
+
+12. **metadata** - DOI, copyright, ACM reference format, CCS concepts, permissions
+
+13. **ignore** - Page numbers, headers, footers, irrelevant fragments
+
+14. **other** - Cannot classify confidently
+
+**Special Detection:**
+- If text contains ONLY comma-separated technical terms → keywords-content
+- If multiple people names + institutions + emails appear together → author (treat as one block)
+- If text is after "Keywords:" or "Key words:" and looks like keyword list → keywords-content
+
+**Output Format (JSON only):**
+{
+  "type": "...",
+  "confidence": 0.95,
+  "reasoning": "Brief explanation in 10 words"
+}`;
+
+  try {
+    const res = await client.chat(sys, prompt, { maxTokens: 200 });
+    const jsonMatch = res.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return { type: 'other' };
+    
+    const parsed = JSON.parse(jsonMatch[0]);
+    return {
+      type: parsed.type || 'other',
+      confidence: parsed.confidence,
+      reasoning: parsed.reasoning
+    };
+  } catch (e) {
+    console.error('LLM classification error:', e);
+    return { type: 'other' };
+  }
+}
+
+/** ===== 行内公式修复 ===== */
+async function fixInlineMath(client: DeepSeekClient, latex: string): Promise<string> {
+  if (!latex || latex.trim().length === 0) return latex;
+  
+  // 🔧 FIX #3: 确保去除 $ 符号
+  let cleaned = latex.trim();
+  if (cleaned.startsWith('$')) cleaned = cleaned.slice(1);
+  if (cleaned.endsWith('$')) cleaned = cleaned.slice(0, -1);
+  cleaned = cleaned.trim();
+  
+  const prompt = `Fix this LaTeX inline math if it has syntax errors. Return ONLY the corrected LaTeX without $ symbols.
+
+Input: ${cleaned}
+
+Rules:
+1. NO surrounding $ symbols in output
+2. Balance all braces {}
+3. Fix common errors: \frac, \sqrt, subscripts, superscripts
+4. Keep math meaning unchanged
+5. If already correct, return as-is
+
+Output (LaTeX only):`;
+
+  try {
+    const res = await client.chat(
+      'You are a LaTeX syntax expert. Output only corrected LaTeX code.',
+      prompt,
+      { maxTokens: 100 }
+    );
+    let fixed = res.trim();
+    // 再次确保没有 $ 符号
+    if (fixed.startsWith('$')) fixed = fixed.slice(1);
+    if (fixed.endsWith('$')) fixed = fixed.slice(0, -1);
+    return fixed.trim() || cleaned;
+  } catch {
+    return cleaned;
+  }
+}
+
+/** ===== 改进的参考文献解析 ===== */
+function parseReferences(rawText: string, generateId: () => string): Reference[] {
+  if (!rawText || !rawText.trim()) return [];
+  
+  // 🔧 FIX #6: 改进参考文献解析
+  const items = rawText
+    .split(/\n(?=\s*\[?\d+\]?\.?\s+)/)  // 按编号分割
+    .map(s => s.trim())
+    .filter(s => s.length > 10);  // 过滤太短的
+  
+  const references: Reference[] = [];
+  let num = 1;
+  
+  for (const item of items) {
+    // 提取编号
+    const numMatch = item.match(/^\[?(\d+)\]?\.?\s+/);
+    if (numMatch) {
+      num = parseInt(numMatch[1], 10);
+    }
+    
+    // 清理文本
+    const cleanText = item.replace(/^\[?\d+\]?\.?\s+/, '');
+    
+    // 提取作者（通常在开头，逗号前或句号前）
+    const authors: string[] = [];
+    const authorMatch = cleanText.match(/^([^.]+?)(?:\.|:)\s+/);
+    if (authorMatch) {
+      const authorText = authorMatch[1];
+      // 简单分割（实际可以更复杂）
+      authors.push(...authorText.split(/,\s*(?:and\s+)?/).map(a => a.trim()).filter(Boolean));
+    }
+    
+    // 提取标题（通常在引号内或加粗）
+    let title = '';
+    const titleMatch = cleanText.match(/["""'']([^"""'']+)["""'']/);
+    if (titleMatch) {
+      title = titleMatch[1].trim();
+    } else {
+      // 如果没有引号，取第一个句号前的内容作为标题
+      const parts = cleanText.split(/\.\s+/);
+      title = parts[1]?.trim() || parts[0]?.trim() || cleanText.slice(0, 100);
+    }
+    
+    // 提取年份
+    const yearMatch = cleanText.match(/\b(19|20)\d{2}\b/);
+    const year = yearMatch ? parseInt(yearMatch[0], 10) : undefined;
+    
+    // 提取 DOI
+    const doiMatch = cleanText.match(/(?:doi:|DOI:)?\s*(10\.\d{4,9}\/[\w.()/:;-]+)/i);
+    const doi = doiMatch ? doiMatch[1].replace(/[),.;]+$/, '') : undefined;
+    
+    // 提取 URL
+    const urlMatch = cleanText.match(/https?:\/\/\S+/);
+    const url = urlMatch ? urlMatch[0].replace(/[),.;]+$/, '') : undefined;
+    
+    // 提取期刊/会议名称（在标题后，年份前）
+    let publication: string | undefined;
+    if (title) {
+      const afterTitle = cleanText.split(title)[1];
+      if (afterTitle) {
+        const pubMatch = afterTitle.match(/[,.]?\s*(?:In\s+)?([^,.\d]+?)(?:,|\.|vol|pp|\d{4})/i);
+        if (pubMatch) {
+          publication = pubMatch[1].trim();
+        }
+      }
+    }
+    
+    // 提取页码
+    const pagesMatch = cleanText.match(/(?:pp\.|pages?)\s*(\d+(?:[-–]\d+)?)/i);
+    const pages = pagesMatch ? pagesMatch[1] : undefined;
+    
+    // 提取卷号
+    const volumeMatch = cleanText.match(/(?:vol\.|volume)\s*(\d+)/i);
+    const volume = volumeMatch ? volumeMatch[1] : undefined;
+    
+    // 提取期号
+    const issueMatch = cleanText.match(/(?:no\.|number)\s*(\d+)/i);
+    const issue = issueMatch ? issueMatch[1] : undefined;
+    
+    references.push({
+      id: generateId(),
+      number: num,
+      authors: authors.length > 0 ? authors : ['Unknown'],
+      title: title || cleanText.slice(0, 80),
+      publication,
+      year,
+      doi,
+      url,
+      pages,
+      volume,
+      issue
+    });
+    
+    num++;
+  }
+  
+  return references;
+}
+
+// ========= 主解析器 =========
 export class AIMarkdownParser {
   private client: DeepSeekClient;
-  private markupParser: MarkupParser;
   private paperId: string;
   private progressCallback?: (progress: ParseProgress) => void;
   private documentLanguage: 'en' | 'zh' | 'mixed' = 'en';
-  private usedIds: Set<string> = new Set(); // 追踪已使用的ID
+  private usedIds: Set<string> = new Set();
+  private headingContext = new HeadingContext();
 
-  private readonly MAX_CHUNK_TOKENS = 2000;
-  private readonly OVERLAP_TOKENS = 300;
-  private readonly DELAY_BETWEEN_REQUESTS = 1000;
-  private readonly MAX_RESPONSE_TOKENS = 8000;
+  private readonly DELAY_BETWEEN_REQUESTS = 500;
+  private readonly MAX_RESPONSE_TOKENS = 6000;
+  private readonly MIN_LINE_TOKENS = 15;
+  private readonly MAX_MERGE_LINES = 10;
 
   constructor(
     paperId: string,
@@ -67,1065 +400,702 @@ export class AIMarkdownParser {
   ) {
     this.paperId = paperId;
     this.client = client;
-    this.markupParser = new MarkupParser();
     this.progressCallback = progressCallback;
   }
 
-  /**
-   * 生成唯一ID
-   */
   private generateUniqueId(prefix: string = ''): string {
     let id: string;
-    do {
-      id = prefix ? `${prefix}-${randomUUID()}` : randomUUID();
+    do { 
+      id = prefix ? `${prefix}-${randomUUID()}` : randomUUID(); 
     } while (this.usedIds.has(id));
-    
     this.usedIds.add(id);
     return id;
   }
 
-  /**
-   * 主解析入口
-   */
+  private logProgress(message: string) {
+    console.log(`\x1b[36m[Parser]\x1b[0m ${message}`);
+  }
+
   async parse(markdownContent: string): Promise<{
-    metadata: any;
+    metadata: {
+      title: string;
+      authors: Array<{ name: string; affiliation?: string; email?: string }>;
+      journal?: string;
+      publicationDate?: string;
+      doi?: string;
+      year?: number;
+      articleType?: string;
+    };
     content: {
       abstract?: { en?: string; zh?: string };
-      keywords: string[];
+      keywords?: string[];
       sections: Section[];
       references: Reference[];
       blockNotes: any[];
       checklistNotes: any[];
-      attachments: string[];
+      attachments?: string[];
     };
   }> {
     const startTime = Date.now();
-
+    
     try {
-      console.log('\n┌─────────────────────────────────────────┐');
-      console.log('│    开始 AI 解析流程 (优化版)           │');
-      console.log('└─────────────────────────────────────────┘\n');
-
-      // 阶段 0: 检测文档语言
-      console.log('🌐 【阶段 0/8】检测文档语言...');
+      // ===== 阶段 0: 初始化 =====
+      this.logProgress('🚀 Starting parse...');
       this.documentLanguage = detectLanguage(markdownContent);
-      const langName = this.documentLanguage === 'zh' ? '中文' : 
-                       this.documentLanguage === 'en' ? '英文' : '中英混合';
-      console.log(`   ✓ 检测结果: ${langName}\n`);
+      this.updateProgress('metadata', 5, { message: 'Language detected: ' + this.documentLanguage });
 
-      // 阶段 1: 提取元数据（标题、作者、DOI等）
-      console.log('📝 【阶段 1/8】提取元数据...');
-      this.updateProgress('metadata', 10);
-      const metadataStart = Date.now();
-      const metadata = await this.extractMetadata(markdownContent);
-      const metadataDuration = ((Date.now() - metadataStart) / 1000).toFixed(1);
-      console.log(`   ✓ 元数据提取完成 (耗时: ${metadataDuration}s)`);
-      console.log(`   ├─ 标题: ${metadata.title || '未识别'}`);
-      console.log(`   ├─ 作者: ${metadata.authors?.length || 0} 人`);
-      console.log(`   └─ DOI: ${metadata.doi || '未提供'}\n`);
+      const normalized = normalizeMarkdown(markdownContent);
+      const scanner = new LineScanner(normalized);
+      const lineTotal = scanner.total();
+      this.logProgress(`📄 Total lines: ${lineTotal}`);
 
-      // 阶段 2: 提取摘要和关键词
-      console.log('📄 【阶段 2/8】提取摘要和关键词...');
-      this.updateProgress('metadata', 15);
-      const abstractStart = Date.now();
-      const { abstract, keywords, abstractEndLine } = await this.extractAbstractAndKeywords(markdownContent);
-      const abstractDuration = ((Date.now() - abstractStart) / 1000).toFixed(1);
-      console.log(`   ✓ 提取完成 (耗时: ${abstractDuration}s)`);
-      console.log(`   ├─ 摘要长度: ${abstract.en?.length || 0} 字符 (EN)`);
-      console.log(`   └─ 关键词: ${keywords.length} 个\n`);
+      // ===== 阶段 1: 前置元数据解析 =====
+      this.logProgress('📋 Phase 1: Parsing metadata...');
+      this.updateProgress('metadata', 12, { message: 'Parsing front-matter' });
 
-      // 从原文中移除摘要和关键词部分，避免重复
-      const mainContent = this.removeAbstractSection(markdownContent, abstractEndLine);
-      console.log(`   ℹ️  已从正文中移除摘要和关键词部分\n`);
-
-      // 阶段 3: 分析结构
-      console.log('🏗️  【阶段 3/8】分析文档结构...');
-      this.updateProgress('structure', 20);
-      const structureStart = Date.now();
-      const structure = await this.analyzeStructure(mainContent);
-      const structureDuration = ((Date.now() - structureStart) / 1000).toFixed(1);
-      console.log(`   ✓ 结构分析完成 (耗时: ${structureDuration}s)`);
-      console.log(`   └─ 识别章节: ${structure.sections?.length || 0} 个\n`);
-
-      // 阶段 4: 智能分块（处理句子边界）
-      console.log('✂️  【阶段 4/8】智能分块（句子级别）...');
-      this.updateProgress('chunking', 25);
-      const chunks = this.createSentenceAwareChunks(mainContent, structure);
-      console.log(`   ✓ 分块完成: 共 ${chunks.length} 块\n`);
-
-      // 阶段 5: 解析内容块
-      console.log(`🔍 【阶段 5/8】解析内容块 (共 ${chunks.length} 块)...`);
-      this.updateProgress('parsing', 30, {
-        totalChunks: chunks.length,
-        chunksProcessed: 0
-      });
-      const parseStart = Date.now();
-      const parsedBlocks = await this.parseChunks(chunks);
-      const parseDuration = ((Date.now() - parseStart) / 1000).toFixed(1);
-      console.log(`   ✓ 内容解析完成 (耗时: ${parseDuration}s)\n`);
-
-      // 阶段 6: 合并结果
-      console.log('🔗 【阶段 6/8】合并解析结果...');
-      this.updateProgress('merging', 70);
-      const mergedContent = this.mergeBlocks(parsedBlocks, structure);
-      console.log(`   ✓ 合并完成`);
-      console.log(`   ├─ 章节数: ${mergedContent.sections.length}`);
-      console.log(`   └─ 图片数: ${mergedContent.figures.length}\n`);
-
-      // 阶段 7: 解析参考文献
-      console.log('📚 【阶段 7/8】解析参考文献...');
-      this.updateProgress('references', 80);
-      const refStart = Date.now();
-      const references = await this.parseReferences(markdownContent, structure);
-      const refDuration = ((Date.now() - refStart) / 1000).toFixed(1);
-      console.log(`   ✓ 参考文献解析完成 (耗时: ${refDuration}s)`);
-      console.log(`   └─ 文献数量: ${references.length}\n`);
-
-      // 阶段 8: 处理图片
-      console.log(`🖼️  【阶段 8/8】处理图片 (共 ${mergedContent.figures.length} 张)...`);
-      this.updateProgress('images', 85, {
-        totalImages: mergedContent.figures.length,
-        imagesProcessed: 0
-      });
-      const imageStart = Date.now();
-      await this.processImages(mergedContent.figures);
-      const imageDuration = ((Date.now() - imageStart) / 1000).toFixed(1);
-      console.log(`   ✓ 图片处理完成 (耗时: ${imageDuration}s)\n`);
-
-      // 构建最终结果
-      console.log('💾 【完成】构建最终结果...');
-      this.updateProgress('saving', 95);
+      let title = '';
+      const authors: { name: string; affiliation?: string; email?: string }[] = [];
+      let journal = '';
+      let publicationDate = '';
+      let doi = '';
       
-      const content = {
-        abstract,
-        keywords,
-        sections: mergedContent.sections,
-        references,
-        blockNotes: [],
-        checklistNotes: [],
-        attachments: []
-      };
-
-      this.updateProgress('completed', 100);
+      let abstractEn = '';
+      let abstractZh = '';
+      let keywords: string[] = [];
       
-      const totalDuration = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log('\n┌─────────────────────────────────────────┐');
-      console.log(`│   AI 解析流程完成 (总耗时: ${totalDuration}s)   │`);
-      console.log('└─────────────────────────────────────────┘\n');
-      
-      return { metadata, content };
+      let inAbstract = false;
+      let inKeywords = false;
 
-    } catch (error) {
-      console.error('\n❌ AI 解析流程失败:', error);
-      throw error;
-    }
-  }
+      const carry = { value: '' };
+      const sections: Section[] = [];
+      const sectionStack: Section[] = [];
 
-  /**
-   * 阶段1: 提取元数据（优化版）
-   */
-  private async extractMetadata(content: string): Promise<any> {
-    const preview = content.slice(0, 8000);
-    const prompt = `You are extracting metadata from an academic paper. Read carefully and output ONLY the structured format requested.
+      let metadataLineCount = 0;
+      const MAX_METADATA_LINES = 80;
 
-<document>
-${preview}
-</document>
+      // 🔧 临时存储待关联的 affiliation 和 email
+      let pendingAffiliations: string[] = [];
+      let pendingEmails: string[] = [];
 
-Extract the following information:
-- Title: The main title of the paper (without any numbering)
-- Authors: All author names with affiliations
-- Publication: Journal or conference name
-- Year: Publication year
-- DOI: Digital Object Identifier
-- Type: Article type (journal/conference/preprint/book/thesis)
+      while (!scanner.eof() && metadataLineCount < MAX_METADATA_LINES) {
+        const curLine = scanner.peek();
+        if (!curLine) break;
 
-OUTPUT FORMAT (output ONLY this, no other text):
-TITLE: [paper title here]
-AUTHORS: Name1|Affiliation1|Email1; Name2|Affiliation2; Name3
-PUBLICATION: [journal name]
-YEAR: [number]
-DOI: [doi]
-TYPE: [type]
+        metadataLineCount++;
+        const lineProcessed = scanner.idx();
+        
+        if (lineProcessed % 10 === 0) {
+          this.logProgress(`  📍 Line ${lineProcessed}/${lineTotal} (${Math.floor(lineProcessed/lineTotal*100)}%)`);
+          this.updateProgress('metadata', Math.min(20, 12 + Math.floor(lineProcessed/lineTotal*8)), {
+            lineProcessed,
+            lineTotal
+          });
+        }
 
-IMPORTANT RULES:
-- Output ONLY lines starting with the field names above
-- Do NOT include any explanatory text
-- Do NOT repeat these instructions
-- If a field is not found, skip that line
-- TITLE is required, output "Unknown Title" if not found`;
+        if (isBlank(curLine.raw)) {
+          scanner.next();
+          continue;
+        }
 
-    try {
-      const response = await this.client.chat(
-        'You are a metadata extraction assistant. Output only the requested format.',
-        prompt
-      );
+        // 🔧 FIX #1: 检测作者块模式
+        const lookAhead = scanner.peek(1);
+        const isAuthorBlockStart = lookAhead && (
+          /^[A-Z][a-z]+(\s+[A-Z][a-z]+)*\*?$/.test(curLine.raw.trim()) &&
+          /University|Institute|College|Department/i.test(lookAhead.raw)
+        );
 
-      // 清理响应，移除可能的系统提示词
-      const cleanedResponse = this.cleanAIResponse(response);
-      const lines = cleanedResponse.split('\n');
-      const metadata: any = {
-        id: this.paperId,
-        title: '',
-        authors: [],
-        publication: '',
-        year: undefined,
-        doi: '',
-        articleType: 'journal',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('TITLE:')) {
-          metadata.title = trimmed.substring(6).trim();
-        } else if (trimmed.startsWith('AUTHORS:')) {
-          const authorText = trimmed.substring(8).trim();
-          metadata.authors = authorText.split(';').map(a => {
-            const parts = a.trim().split('|');
-            if (parts.length === 1) {
-              return { name: parts[0].trim() };
+        let mergedText: string;
+        if (isAuthorBlockStart) {
+          mergedText = SmartMerger.mergeAuthorBlock(scanner);
+          this.logProgress(`  👥 Merged author block (${mergedText.split('\n').length} lines)`);
+        } else {
+          mergedText = scanner.peekMergedLines(this.MIN_LINE_TOKENS, this.MAX_MERGE_LINES);
+        }
+
+        // 提前检测 Keywords
+        if (/^Keywords?:?\s*/i.test(mergedText)) {
+          scanner.consumeMergedLines(mergedText);
+          inKeywords = true;
+          inAbstract = false;
+          this.logProgress('  🔑 Keywords heading detected');
+          
+          // 读取后续的关键词内容
+          const keywordText = SmartMerger.mergeKeywordsBlock(scanner);
+          if (keywordText) {
+            const cleaned = keywordText.replace(/^Keywords?:?\s*/i, '').trim();
+            const kws = cleaned.split(/[,;，；]/).map(s => s.trim()).filter(Boolean);
+            keywords.push(...kws);
+            this.logProgress(`  🔖 Extracted keywords: ${kws.join(', ')}`);
+          }
+          continue;
+        }
+
+        if (/^#{1,6}\s+(Introduction|Related Work|Background|Methodology|Methods|Experiments|Results|Discussion|Conclusion)/i.test(mergedText)) {
+          this.logProgress('  ✅ Found main content heading, ending metadata phase');
+          break;
+        }
+
+        const classification = await classifyTextBatchLLM(
+          this.client,
+          mergedText,
+          this.headingContext.getContext()
+        );
+
+        this.logProgress(`  🏷️  Classified as: ${classification.type} (conf: ${classification.confidence?.toFixed(2) || 'N/A'})`);
+
+        switch (classification.type) {
+          case 'title':
+            if (!title) {
+              title = mergedText.replace(/^#\s*/, '').trim();
+              this.logProgress(`  📌 Title: ${title.slice(0, 60)}...`);
             }
-            return {
-              name: parts[0].trim(),
-              affiliation: parts[1]?.trim() || undefined,
-              email: parts[2]?.trim() || undefined
-            };
-          }).filter(a => a.name);
-        } else if (trimmed.startsWith('PUBLICATION:')) {
-          metadata.publication = trimmed.substring(12).trim();
-        } else if (trimmed.startsWith('YEAR:')) {
-          const year = parseInt(trimmed.substring(5).trim());
-          if (!isNaN(year)) metadata.year = year;
-        } else if (trimmed.startsWith('DOI:')) {
-          metadata.doi = trimmed.substring(4).trim();
-        } else if (trimmed.startsWith('TYPE:')) {
-          const type = trimmed.substring(5).trim().toLowerCase();
-          if (['journal', 'conference', 'preprint', 'book', 'thesis'].includes(type)) {
-            metadata.articleType = type;
+            scanner.consumeMergedLines(mergedText);
+            break;
+
+          case 'author':
+            // 🔧 FIX: 更智能的作者信息提取
+            const authorLines = mergedText.split('\n').map(l => l.trim()).filter(Boolean);
+            
+            let currentAuthor: any = null;
+            for (const line of authorLines) {
+              // 检测人名
+              if (/^[A-Z][a-z]+(\s+[A-Z][a-z]+)+\*?$/.test(line)) {
+                if (currentAuthor) {
+                  authors.push(currentAuthor);
+                }
+                currentAuthor = { name: line.replace(/\*+$/, '').trim() };
+                this.logProgress(`  👤 Author: ${currentAuthor.name}`);
+              }
+              // 检测单位
+              else if (/University|Institute|College|Laboratory|Department|Academy|Center/i.test(line)) {
+                if (currentAuthor) {
+                  if (!currentAuthor.affiliation) {
+                    currentAuthor.affiliation = line;
+                  } else {
+                    currentAuthor.affiliation += ', ' + line;
+                  }
+                } else {
+                  pendingAffiliations.push(line);
+                }
+                this.logProgress(`  🏛️  Affiliation: ${line.slice(0, 40)}`);
+              }
+              // 检测邮箱
+              else if (/@/.test(line)) {
+                const emailMatch = line.match(/[\w.+-]+@[\w.-]+\.\w+/);
+                if (emailMatch && currentAuthor) {
+                  currentAuthor.email = emailMatch[0];
+                  this.logProgress(`  📧 Email: ${emailMatch[0]}`);
+                } else if (emailMatch) {
+                  pendingEmails.push(emailMatch[0]);
+                }
+              }
+            }
+            
+            if (currentAuthor) {
+              authors.push(currentAuthor);
+            }
+            
+            scanner.consumeMergedLines(mergedText);
+            break;
+
+          case 'affiliation':
+            if (authors.length > 0) {
+              const lastAuthor = authors[authors.length - 1];
+              if (!lastAuthor.affiliation) {
+                lastAuthor.affiliation = mergedText.trim();
+              } else {
+                lastAuthor.affiliation += ', ' + mergedText.trim();
+              }
+              this.logProgress(`  🏛️  Affiliation: ${mergedText.slice(0, 40)}`);
+            } else {
+              pendingAffiliations.push(mergedText.trim());
+            }
+            scanner.consumeMergedLines(mergedText);
+            break;
+
+          case 'email':
+            const emailMatch = mergedText.match(/[\w.+-]+@[\w.-]+\.\w+/);
+            if (emailMatch) {
+              if (authors.length > 0 && !authors[authors.length - 1].email) {
+                authors[authors.length - 1].email = emailMatch[0];
+                this.logProgress(`  📧 Email: ${emailMatch[0]}`);
+              } else {
+                pendingEmails.push(emailMatch[0]);
+              }
+            }
+            scanner.consumeMergedLines(mergedText);
+            break;
+
+          case 'journal':
+            journal = mergedText.trim();
+            this.logProgress(`  📚 Journal: ${journal.slice(0, 50)}`);
+            scanner.consumeMergedLines(mergedText);
+            break;
+
+          case 'date':
+            publicationDate = mergedText.trim();
+            scanner.consumeMergedLines(mergedText);
+            break;
+
+          case 'metadata':
+            const doiMatch = mergedText.match(/10\.\d{4,9}\/[\w.()/:;-]+/i);
+            if (doiMatch) {
+              doi = doiMatch[0];
+              this.logProgress(`  🔗 DOI: ${doi}`);
+            }
+            scanner.consumeMergedLines(mergedText);
+            break;
+
+          case 'abstract-heading':
+            inAbstract = true;
+            inKeywords = false;
+            this.logProgress('  📝 Entering Abstract section');
+            scanner.consumeMergedLines(mergedText);
+            break;
+
+          case 'keywords-heading':
+            inKeywords = true;
+            inAbstract = false;
+            this.logProgress('  🔑 Entering Keywords section');
+            scanner.consumeMergedLines(mergedText);
+            break;
+
+          // 🔧 FIX #2: 新增 keywords-content 类型处理
+          case 'keywords-content' as any:
+            const cleaned = mergedText.replace(/^Keywords?:?\s*/i, '').trim();
+            const kws = cleaned.split(/[,;，；]/).map(s => s.trim()).filter(Boolean);
+            keywords.push(...kws);
+            this.logProgress(`  🔖 Keywords extracted: ${kws.join(', ')}`);
+            scanner.consumeMergedLines(mergedText);
+            break;
+
+          case 'ccs-heading':
+          case 'acmref-heading':
+          case 'ignore':
+            this.logProgress(`  ⏭️  Skipping ${classification.type}`);
+            scanner.consumeMergedLines(mergedText);
+            break;
+
+          case 'references-heading':
+            this.logProgress('  📚 Found References, ending metadata');
+            metadataLineCount = MAX_METADATA_LINES;
+            break;
+
+          case 'heading':
+            if (/Introduction|Related Work|Background|Method/i.test(mergedText)) {
+              this.logProgress('  🎯 Main content heading found, ending metadata');
+              metadataLineCount = MAX_METADATA_LINES;
+            } else {
+              scanner.consumeMergedLines(mergedText);
+            }
+            break;
+
+          case 'paragraph':
+            if (inAbstract) {
+              abstractEn += (abstractEn ? '\n' : '') + mergedText.trim();
+              this.logProgress(`  📄 Abstract paragraph (${mergedText.length} chars)`);
+            } else if (inKeywords) {
+              const kws = mergedText.split(/[,;，；]/).map(s => s.trim()).filter(Boolean);
+              keywords.push(...kws);
+              this.logProgress(`  🔖 Keywords: ${kws.join(', ')}`);
+            }
+            scanner.consumeMergedLines(mergedText);
+            break;
+
+          default:
+            scanner.next();
+        }
+
+        await this.sleep(100);
+      }
+
+      // 🔧 关联待处理的 affiliation 和 email
+      if (pendingAffiliations.length > 0 && authors.length > 0) {
+        for (let i = 0; i < Math.min(pendingAffiliations.length, authors.length); i++) {
+          if (!authors[i].affiliation) {
+            authors[i].affiliation = pendingAffiliations[i];
+          }
+        }
+      }
+      if (pendingEmails.length > 0 && authors.length > 0) {
+        for (let i = 0; i < Math.min(pendingEmails.length, authors.length); i++) {
+          if (!authors[i].email) {
+            authors[i].email = pendingEmails[i];
           }
         }
       }
 
-      if (!metadata.title) {
-        metadata.title = '未能识别标题';
+      this.logProgress(`✅ Metadata parsed: title=${!!title}, authors=${authors.length}, keywords=${keywords.length}, abstract=${!!abstractEn}`);
+
+      // ===== 阶段 2: 正文解析 =====
+      this.logProgress('📖 Phase 2: Parsing body content...');
+      this.updateProgress('parsing', 25, { message: 'Parsing body' });
+
+      // 🔧 FIX #5: 修复标题重复问题
+      const pushHeading = (level: number, titleEn: string) => {
+        this.headingContext.update(level, titleEn);
+        
+        // ❌ 不再创建 HeadingBlock 并推入 content
+        // 只创建 Section，设置 title
+        
+        const newSection: Section = {
+          id: this.generateUniqueId('section'),
+          number: undefined,
+          title: { en: titleEn, zh: '' },
+          content: [],  // 空的，不包含 heading block
+          subsections: []
+        };
+        
+        while (sectionStack.length && (sectionStack.length > level - 1)) {
+          sectionStack.pop();
+        }
+        
+        if (sectionStack.length === 0) {
+          sections.push(newSection);
+        } else {
+          sectionStack[sectionStack.length - 1].subsections!.push(newSection);
+        }
+        
+        sectionStack.push(newSection);
+        
+        this.logProgress(`  📑 Section [L${level}]: ${titleEn.slice(0, 50)}`);
+      };
+
+      let bodyLineCount = 0;
+      while (!scanner.eof()) {
+        bodyLineCount++;
+        const lineProcessed = scanner.idx();
+
+        if (bodyLineCount % 20 === 0) {
+          this.logProgress(`  📍 Line ${lineProcessed}/${lineTotal} (${Math.floor(lineProcessed/lineTotal*100)}%)`);
+          this.updateProgress('parsing', Math.min(70, 25 + Math.floor((lineProcessed/lineTotal)*45)), {
+            lineProcessed,
+            lineTotal
+          });
+        }
+
+        const cur = scanner.peek();
+        if (!cur) break;
+
+        if (/^\s*#{1,6}\s*(references|bibliography|参考文献)\s*$/i.test(cur.raw.trim())) {
+          this.logProgress('  📚 Found References heading');
+          scanner.next();
+          break;
+        }
+
+        const parsers = [
+          parseCodeBlock,
+          parseBlockMath,
+          parseTable,
+          parseImage,
+          parseBlockquote,
+          parseDivider,
+          parseList,
+          parseHeading
+        ];
+
+        let block: BlockContent | null = null;
+        for (const fn of parsers) {
+          block = fn(scanner as any);
+          if (block) break;
+        }
+
+        if (block && block.type === 'heading') {
+          const en = (block as any).content?.en?.map((x: any) => x.content || '').join('') || '';
+          const lv = (block as any).level || 1;
+          pushHeading(lv, en);
+          continue;  // 🔧 直接 continue，不要把 heading 推入 content
+        }
+
+        if (!block) {
+          block = parseParagraph(scanner, carry);
+          if (!block) {
+            scanner.next();
+            continue;
+          }
+        }
+
+        block.id = this.generateUniqueId(block.type);
+
+        if (sectionStack.length === 0) {
+          const root: Section = {
+            id: this.generateUniqueId('section'),
+            title: { en: '', zh: '' },
+            content: [],
+            subsections: []
+          };
+          sections.push(root);
+          sectionStack.push(root);
+        }
+        
+        sectionStack[sectionStack.length - 1].content.push(block);
       }
 
-      return metadata;
-    } catch (error) {
-      console.error('元数据提取失败:', error);
-      return {
-        id: this.paperId,
-        title: '未能识别标题',
-        authors: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+      this.logProgress(`✅ Body parsed: ${sections.length} sections`);
+
+      // ===== 阶段 3: 行内公式修复 =====
+      this.logProgress('🔧 Phase 3: Fixing inline math...');
+      this.updateProgress('parsing', 72, { message: 'Fixing inline math' });
+
+      let mathFixCount = 0;
+      const fixMathInSections = async (secs: Section[]) => {
+        for (const sec of secs) {
+          for (const block of sec.content) {
+            if (block.type === 'paragraph' || block.type === 'heading') {
+              const content = (block as any).content?.en || [];
+              for (let i = 0; i < content.length; i++) {
+                if (content[i].type === 'inline-math') {
+                  const original = content[i].latex;
+                  const fixed = await fixInlineMath(this.client, original);
+                  if (fixed !== original) {
+                    content[i].latex = fixed;
+                    mathFixCount++;
+                    this.logProgress(`  🔧 Fixed math: ${original} → ${fixed}`);
+                  }
+                }
+              }
+            }
+          }
+          if (sec.subsections) await fixMathInSections(sec.subsections);
+        }
       };
-    }
-  }
 
-  /**
-   * 阶段2: 提取摘要和关键词（优化版）
-   */
-  private async extractAbstractAndKeywords(content: string): Promise<{
-    abstract: { en?: string; zh?: string };
-    keywords: string[];
-    abstractEndLine: number;
-  }> {
-    const preview = content.slice(0, 10000);
-    const prompt = `You are extracting abstract and keywords from an academic paper.
+      await fixMathInSections(sections);
+      this.logProgress(`✅ Fixed ${mathFixCount} inline math expressions`);
 
-<document>
-${preview}
-</document>
+      // ===== 阶段 4: 翻译 =====
+      if (this.documentLanguage === 'en' && abstractEn) {
+        this.logProgress('🌏 Phase 4: Translating to Chinese...');
+        this.updateProgress('parsing', 75, { message: 'Translating abstract' });
+        abstractZh = await this.translateToZh(abstractEn, 'abstract');
+        this.logProgress('  ✅ Abstract translated');
 
-Find the abstract section and keywords. Output ONLY the format below:
+        const texts: { write: (zh: string) => void; text: string }[] = [];
+        const collectTexts = (sec: Section) => {
+          // 收集 section title
+          if (sec.title.en) {
+            texts.push({
+              text: sec.title.en,
+              write: (zh: string) => { sec.title.zh = zh; }
+            });
+          }
+          
+          for (const b of sec.content) {
+            if (b.type === 'paragraph') {
+              const en = ((b as any).content?.en || [])
+                .map((n: any) => n.type === 'text' ? n.content : '').join('');
+              if (en) {
+                texts.push({
+                  text: en,
+                  write: (zh: string) => { (b as any).content.zh = toInline(zh); }
+                });
+              }
+            }
+          }
+          for (const s of sec.subsections || []) collectTexts(s);
+        };
 
-ABSTRACT-EN: [full English abstract text if present]
-ABSTRACT-ZH: [full Chinese abstract text if present]
-KEYWORDS: [comma-separated keywords]
+        for (const s of sections) collectTexts(s);
 
-IMPORTANT RULES:
-- Output ONLY the three lines above
-- Do NOT include any explanations
-- Do NOT repeat these instructions
-- If abstract is in English, put it in ABSTRACT-EN
-- If abstract is in Chinese, put it in ABSTRACT-ZH
-- Output the complete abstract text, not a summary`;
+        const batchSize = 20;
+        for (let i = 0; i < texts.length; i += batchSize) {
+          const batch = texts.slice(i, i + batchSize);
+          const joined = batch.map(x => x.text).join('\n<<<SEP>>>\n');
+          const zhJoined = await this.translateToZh(joined, 'body');
+          const zhParts = zhJoined.split(/\n?<<<SEP>>>\n?/).map(s => s.trim());
+          
+          for (let k = 0; k < batch.length && k < zhParts.length; k++) {
+            batch[k].write(zhParts[k] || '');
+          }
+          
+          this.logProgress(`  🌏 Translated ${i + batch.length}/${texts.length} texts`);
+          this.updateProgress('parsing', 75 + Math.floor((i / texts.length) * 5), {
+            message: `Translating ${i}/${texts.length}`
+          });
+          
+          if (i + batchSize < texts.length) {
+            await this.sleep(this.DELAY_BETWEEN_REQUESTS);
+          }
+        }
 
-    try {
-      const response = await this.client.chat(
-        'You are an abstract extraction assistant. Output only the requested format.',
-        prompt
-      );
+        this.logProgress('✅ Translation complete');
+      }
 
-      const cleanedResponse = this.cleanAIResponse(response);
-      const lines = cleanedResponse.split('\n');
-      let abstractEn = '';
-      let abstractZh = '';
-      const keywords: string[] = [];
-      
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('ABSTRACT-EN:')) {
-          abstractEn = trimmed.substring(12).trim();
-        } else if (trimmed.startsWith('ABSTRACT-ZH:')) {
-          abstractZh = trimmed.substring(12).trim();
-        } else if (trimmed.startsWith('KEYWORDS:')) {
-          const kwText = trimmed.substring(9).trim();
-          keywords.push(...kwText.split(/[,;，；]/).map(k => k.trim()).filter(Boolean));
+      // ===== 阶段 5: 参考文献 =====
+      this.logProgress('📚 Phase 5: Parsing references...');
+      this.updateProgress('references', 85, { message: 'Parsing references' });
+
+      const refsRaw = scanner.remainingText();
+      const references = parseReferences(refsRaw, () => this.generateUniqueId('ref'));
+      this.logProgress(`✅ Parsed ${references.length} references`);
+
+      // ===== 阶段 6: 图片处理 =====
+      this.logProgress('🖼️  Phase 6: Processing images...');
+      await this.processImages(sections);
+      this.updateProgress('images', 95, { message: 'Images processed' });
+
+      // ===== 提取年份和文章类型 =====
+      let year: number | undefined;
+      if (publicationDate) {
+        const yearMatch = publicationDate.match(/\b(20\d{2}|19\d{2})\b/);
+        if (yearMatch) year = parseInt(yearMatch[1], 10);
+      }
+      if (!year && journal) {
+        const yearMatch = journal.match(/\b(20\d{2}|19\d{2})\b/);
+        if (yearMatch) year = parseInt(yearMatch[1], 10);
+      }
+
+      let articleType: 'conference' | 'journal' | 'preprint' | 'book' | 'thesis' | undefined;
+      if (journal) {
+        const lowerJournal = journal.toLowerCase();
+        if (lowerJournal.includes('conference') || lowerJournal.includes('proceedings') || 
+            lowerJournal.match(/\b(acm|ieee|cvpr|iccv|neurips|icml|iclr|aaai|ijcai)\b/)) {
+          articleType = 'conference';
+        } else if (lowerJournal.includes('arxiv') || lowerJournal.includes('preprint')) {
+          articleType = 'preprint';
+        } else if (lowerJournal.includes('journal') || lowerJournal.includes('transactions')) {
+          articleType = 'journal';
+        } else if (lowerJournal.includes('book')) {
+          articleType = 'book';
+        } else if (lowerJournal.includes('thesis') || lowerJournal.includes('dissertation')) {
+          articleType = 'thesis';
         }
       }
 
-      // 如果是英文文档但没有中文摘要，需要翻译
-      if (this.documentLanguage === 'en' && abstractEn && !abstractZh) {
-        console.log('   🌐 翻译摘要中...');
-        abstractZh = await this.translateToZh(abstractEn, 'abstract');
-      }
-
-      // 查找摘要结束位置
-      const abstractEndLine = this.findAbstractEndLine(content);
+      // ===== 完成 =====
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+      this.logProgress(`🎉 Parse complete in ${elapsed}s`);
+      this.updateProgress('completed', 100, { message: 'Parsing completed' });
 
       return {
-        abstract: {
-          en: abstractEn || undefined,
-          zh: abstractZh || undefined
+        metadata: {
+          title: title || 'Untitled',
+          authors,
+          journal: journal || undefined,
+          publicationDate: publicationDate || undefined,
+          doi: doi || undefined,
+          year,
+          articleType: articleType || 'journal'
         },
-        keywords,
-        abstractEndLine
+        content: {
+          abstract: { en: abstractEn || undefined, zh: abstractZh || undefined },
+          keywords,
+          sections,
+          references,
+          blockNotes: [],
+          checklistNotes: [],
+          attachments: []
+        }
       };
-    } catch (error) {
-      console.error('摘要提取失败:', error);
-      return {
-        abstract: { en: '', zh: '' },
-        keywords: [],
-        abstractEndLine: 0
-      };
+
+    } catch (err: any) {
+      this.logProgress(`❌ Parse failed: ${err.message}`);
+      this.updateProgress('completed', 100, { message: 'Failed' });
+      throw err;
     }
   }
 
-  /**
-   * 查找摘要和关键词结束的行号
-   */
-  private findAbstractEndLine(content: string): number {
-    const lines = content.split('\n');
-    let abstractFound = false;
-    let keywordsFound = false;
-    
-    for (let i = 0; i < Math.min(lines.length, 200); i++) {
-      const line = lines[i].toLowerCase().trim();
-      
-      if (line.match(/^#+\s*(abstract|摘要)/)) {
-        abstractFound = true;
-      }
-      
-      if (abstractFound && line.match(/^#+\s*(keywords?|关键词)/)) {
-        keywordsFound = true;
-      }
-      
-      // 找到关键词后的第一个主要章节标题
-      if (keywordsFound && line.match(/^#+\s*(introduction|背景|引言|1\.|i\.|chapter)/i)) {
-        return i;
-      }
-    }
-    
-    return 0;
-  }
-
-  /**
-   * 从原文中移除摘要和关键词部分
-   */
-  private removeAbstractSection(content: string, endLine: number): string {
-    if (endLine === 0) return content;
-    
-    const lines = content.split('\n');
-    // 保留摘要之前的内容和摘要之后的内容
-    return lines.slice(endLine).join('\n');
-  }
-
-  /**
-   * 翻译文本到中文
-   */
   private async translateToZh(text: string, context: string = 'general'): Promise<string> {
-    if (!text || text.trim().length === 0) return '';
-    
+    if (!text || !text.trim()) return '';
     try {
-      const prompt = `Translate this academic text to Chinese. Output ONLY the translation.
-
+      const prompt = `Translate to Chinese. Keep math, citations and inline markdown intact.
 <text>
 ${text}
 </text>
-
-RULES:
-- Output ONLY the Chinese translation
-- No explanations, no "Here is the translation", no extra text
-- Maintain academic tone`;
-
-      const response = await this.client.chat(
-        'You are a professional translator. Output only the translation.',
-        prompt
+Output ONLY the translation.`;
+      
+      const resp = await this.client.chat(
+        'You are a professional CN translator. Output only the Chinese translation.',
+        prompt,
+        { maxTokens: this.MAX_RESPONSE_TOKENS }
       );
-
-      return this.cleanAIResponse(response).trim();
-    } catch (error) {
-      console.error(`翻译失败 (${context}):`, error);
+      return (resp || '').trim();
+    } catch {
       return '';
     }
   }
 
-  /**
-   * 阶段3: 分析结构（优化版）
-   */
-  private async analyzeStructure(content: string): Promise<any> {
-    const preview = content.substring(0, 12000);
-    const prompt = `Analyze the structure of this academic paper and identify all section headings.
-
-<document>
-${preview}
-</document>
-
-Find all section headings (marked with #, ##, ### or numbered like "1.", "1.1", "I.", etc.).
-
-OUTPUT FORMAT (one per line):
-SECTION: [level]|[title without numbering]|[line number]
-
-Example:
-SECTION: 1|Introduction|10
-SECTION: 2|Methodology|50
-SECTION: 2|Results|120
-
-RULES:
-- Output ONLY lines starting with "SECTION:"
-- Level 1 for main sections, 2 for subsections, 3 for sub-subsections
-- Remove any numbering from the title (e.g., "1. Introduction" → "Introduction")
-- No explanations or other text`;
-
-    try {
-      const response = await this.client.chat(
-        'You are a document structure analyzer. Output only the requested format.',
-        prompt
-      );
-
-      const cleanedResponse = this.cleanAIResponse(response);
-      const sections: any[] = [];
-      const lines = cleanedResponse.split('\n');
-      
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('SECTION:')) {
-          const parts = trimmed.substring(8).trim().split('|');
-          if (parts.length >= 3) {
-            const title = this.removeNumberingFromTitle(parts[1].trim());
-            sections.push({
-              level: parseInt(parts[0].trim()),
-              title: title,
-              startLine: parseInt(parts[2].trim()) || 0
-            });
-          }
-        }
-      }
-
-      return { sections };
-    } catch (error) {
-      console.error('结构分析失败:', error);
-      return { sections: [] };
-    }
-  }
-
-  /**
-   * 从标题中移除编号
-   */
-  private removeNumberingFromTitle(title: string): string {
-    // 移除各种编号格式：1. 1.1 I. A. (1) [1] 等
-    return title
-      .replace(/^[\d\.\s]+/, '')           // 数字编号：1. 1.1. 
-      .replace(/^[IVXivx]+[\.\s]+/i, '')   // 罗马数字：I. IV.
-      .replace(/^[A-Z][\.\s]+/, '')        // 字母编号：A. B.
-      .replace(/^[\(\[\{][\d]+[\)\]\}]/, '') // 括号数字：(1) [1] {1}
-      .trim();
-  }
-
-  /**
-   * 阶段4: 智能分块（句子感知版）
-   */
-  private createSentenceAwareChunks(content: string, structure: any): ChunkInfo[] {
-    const lines = content.split('\n');
-    const chunks: ChunkInfo[] = [];
-    
-    let currentChunk: string[] = [];
-    let currentTokens = 0;
-    let startLine = 0;
-    let previousLastSentence = '';
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const lineTokens = estimateTokens(line);
-
-      // 如果当前块会超限，且已有内容，则保存当前块
-      if (currentTokens + lineTokens > this.MAX_CHUNK_TOKENS && currentChunk.length > 0) {
-        // 提取最后一个未完成的句子
-        const lastSentence = this.extractIncompleteSentence(currentChunk.join('\n'));
-        
-        chunks.push({
-          content: currentChunk.join('\n'),
-          index: chunks.length,
-          startLine,
-          endLine: i - 1,
-          lastSentence: previousLastSentence
-        });
-
-        // 为下一个块准备上下文（未完成的句子）
-        if (lastSentence) {
-          currentChunk = [lastSentence];
-          currentTokens = estimateTokens(lastSentence);
-          previousLastSentence = lastSentence;
-        } else {
-          currentChunk = [];
-          currentTokens = 0;
-          previousLastSentence = '';
-        }
-        
-        startLine = i;
-      }
-
-      currentChunk.push(line);
-      currentTokens += lineTokens;
-    }
-
-    // 保存最后一个块
-    if (currentChunk.length > 0) {
-      chunks.push({
-        content: currentChunk.join('\n'),
-        index: chunks.length,
-        startLine,
-        endLine: lines.length - 1,
-        lastSentence: previousLastSentence
-      });
-    }
-
-    return chunks;
-  }
-
-  /**
-   * 提取未完成的句子
-   */
-  private extractIncompleteSentence(text: string): string {
-    // 查找最后一个完整句子的结束符
-    const sentenceEnders = /[.!?。！？]/g;
-    let lastCompleteIndex = -1;
-    let match;
-    
-    while ((match = sentenceEnders.exec(text)) !== null) {
-      lastCompleteIndex = match.index;
-    }
-    
-    // 如果找到句子结束符，返回之后的内容
-    if (lastCompleteIndex > -1) {
-      const incompletePart = text.substring(lastCompleteIndex + 1).trim();
-      // 只有当未完成部分有实际内容时才返回
-      if (incompletePart.length > 10) {
-        return incompletePart;
-      }
-    }
-    
-    return '';
-  }
-
-  /**
-   * 阶段5: 解析内容块（优化版）
-   */
-  private async parseChunks(chunks: ChunkInfo[]): Promise<string[]> {
-    const results: string[] = [];
-
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
-      
-      const progress = 30 + Math.floor((i / chunks.length) * 40);
-      this.updateProgress('parsing', progress, {
-        totalChunks: chunks.length,
-        chunksProcessed: i
-      });
-
-      const chunkStart = Date.now();
-      console.log(`   📄 [${i + 1}/${chunks.length}] 解析块 (行 ${chunk.startLine}-${chunk.endLine})...`);
-
-      const prompt = this.buildContentParsePrompt(chunk.content, i, chunk.lastSentence);
-      
-      try {
-        const response = await this.client.chat(
-          'You are a content parser. Output only the structured format requested.',
-          prompt,
-          { maxTokens: this.MAX_RESPONSE_TOKENS }
-        );
-
-        const cleanedResponse = this.cleanAIResponse(response);
-        const chunkDuration = ((Date.now() - chunkStart) / 1000).toFixed(1);
-        console.log(`       ✓ 完成 (${chunkDuration}s)`);
-        
-        results.push(cleanedResponse);
-
-      } catch (error) {
-        console.error(`       ✗ 解析失败:`, error instanceof Error ? error.message : error);
-        results.push('');
-      }
-
-      if (i < chunks.length - 1) {
-        await this.sleep(this.DELAY_BETWEEN_REQUESTS);
-      }
-    }
-
-    return results;
-  }
-
-  /**
-   * 阶段6: 合并块
-   */
-  private mergeBlocks(parsedMarkups: string[], structure: any): any {
-    const allBlocks: BlockContent[] = [];
-
-    for (const markup of parsedMarkups) {
-      if (!markup) continue;
-      
-      try {
-        const blocks = this.markupParser.parseBlocks(markup);
-        // 确保每个块都有唯一ID
-        blocks.forEach(block => {
-          if (!block.id || this.usedIds.has(block.id)) {
-            block.id = this.generateUniqueId(block.type);
-          } else {
-            this.usedIds.add(block.id);
-          }
-        });
-        allBlocks.push(...blocks);
-      } catch (error) {
-        console.error('解析标记文本失败:', error);
-      }
-    }
-
-    const sections = this.buildSectionTree(allBlocks, structure);
-    const figures = allBlocks.filter(b => b.type === 'figure');
-
-    return { sections, figures };
-  }
-
-  /**
-   * 阶段7: 解析参考文献
-   */
-  private async parseReferences(content: string, structure: any): Promise<Reference[]> {
-    const refSectionText = this.extractReferencesSection(content, structure);
-    
-    if (!refSectionText || refSectionText.trim().length === 0) {
-      console.log('   ⚠️  未找到参考文献章节');
-      return [];
-    }
-    
-    const prompt = `Parse these academic references into structured format.
-
-<references>
-${refSectionText.substring(0, 20000)}
-</references>
-
-For each reference, output:
-
-#REF
-AUTHORS: Author1; Author2; Author3
-TITLE: Paper title
-PUBLICATION: Journal/Conference name
-YEAR: 2024
-DOI: 10.xxxx/xxxxx
-URL: https://...
-PAGES: 1-10
-VOLUME: 12
-NUMBER: 3
-
-RULES:
-- Output ONLY #REF blocks
-- One block per reference
-- Separate authors with semicolons
-- Skip missing fields
-- No explanations`;
-
-    try {
-      const response = await this.client.chat(
-        'You are a reference parser. Output only the structured format.',
-        prompt
-      );
-
-      const cleanedResponse = this.cleanAIResponse(response);
-      return this.markupParser.parseReferences(cleanedResponse);
-    } catch (error) {
-      console.error('参考文献解析失败:', error);
-      return [];
-    }
-  }
-
-  /**
-   * 阶段8: 处理图片
-   */
-  private async processImages(figures: any[]): Promise<void> {
-    if (figures.length === 0) {
-      console.log('   ℹ️  没有图片需要处理');
-      return;
-    }
-
-    for (let i = 0; i < figures.length; i++) {
-      const figure = figures[i];
-      
-      this.updateProgress('images', 85 + Math.floor((i / figures.length) * 10), {
-        totalImages: figures.length,
-        imagesProcessed: i
-      });
-
-      console.log(`   🖼️  [${i + 1}/${figures.length}] 处理图片: ${figure.id}`);
-      
-      if (figure.src && this.isExternalUrl(figure.src)) {
-        try {
-          const downloadStart = Date.now();
-          const localPath = await this.downloadImage(figure.src, figure.id);
-          const downloadDuration = ((Date.now() - downloadStart) / 1000).toFixed(1);
-          
-          figure.src = localPath;
-          figure.uploadedFilename = path.basename(localPath);
-          console.log(`       ✓ 下载成功 (${downloadDuration}s) -> ${localPath}`);
-        } catch (error) {
-          console.error(`       ✗ 下载失败: ${error instanceof Error ? error.message : error}`);
-          console.log(`       └─ 保留原始 URL`);
-        }
-      } else {
-        console.log(`       ℹ️  使用本地/相对路径，跳过下载`);
-      }
-    }
-  }
-
-  // ========== Prompt 构建方法 ==========
-
-  private buildContentParsePrompt(content: string, chunkIndex: number, lastSentence?: string): string {
-    const needTranslation = this.documentLanguage === 'en';
-    
-    let contextNote = '';
-    if (lastSentence) {
-      contextNote = `\nCONTEXT FROM PREVIOUS CHUNK:
-"${lastSentence}"
-(This is the incomplete sentence from previous chunk. Continue parsing from where this left off to avoid duplication.)`;
-    }
-    
-    return `Parse this Markdown content into structured format. Output ONLY the markers specified below.
-${contextNote}
-
-<content>
-${content}
-</content>
-
-OUTPUT MARKERS:
-
-## Heading (h1-h6)
-#HEADING[1-6]
-EN: [English heading text without numbering]
-ZH: [Chinese translation]
-
-## Paragraph
-#PARA
-EN: [English text with **bold**, *italic*, [link](url), $math$, [1,2] citations]
-ZH: [Chinese translation]
-
-## Math Formula
-#MATH
-LATEX: equation
-LABEL: eq-1
-
-## Figure
-#FIGURE
-SRC: image.png
-CAPTION-EN: [caption]
-CAPTION-ZH: [Chinese caption]
-ALT: [alt text]
-NUMBER: 1
-
-## Table
-#TABLE
-CAPTION-EN: [caption]
-CAPTION-ZH: [Chinese caption]
-HEADERS: Col1|Col2|Col3
-ROW: Data1|Data2|Data3
-NUMBER: 1
-
-## Code
-#CODE python
-[code]
-CAPTION-EN: [optional]
-
-## Lists
-#LIST-ORDERED
-ITEM-EN: First
-ITEM-ZH: 第一
-
-#LIST-UNORDERED
-ITEM-EN: Bullet
-ITEM-ZH: 要点
-
-## Quote
-#QUOTE
-EN: Quote text
-ZH: 引用
-AUTHOR: Name
-
-## Divider
-#DIVIDER
-
-CRITICAL RULES:
-1. Output ONLY the markers above - nothing else
-2. Do NOT include any explanatory text like "Here is the parsed content"
-3. Do NOT repeat these instructions in output
-4. Do NOT include phrases like "Chunk X", "Document language", etc.
-5. Keep inline formatting: **bold**, *italic*, \`code\`, [link](url)
-6. Citations: [1], [1,2], [1-3]
-7. Remove numbering from headings (e.g., "1. Introduction" → "Introduction")
-${needTranslation ? '8. Translate ALL content to Chinese in ZH fields' : '8. Extract content as-is'}
-9. If parsing continues from previous context, do NOT duplicate that content`;
-  }
-
-  /**
-   * 清理AI响应，移除系统提示词污染
-   */
-  private cleanAIResponse(response: string): string {
-    // 移除常见的系统提示词污染
-    const patterns = [
-      /^(?:Here is|Here's|Below is|The following is|I've|I have).+?[:：]\s*/gim,
-      /^(?:Sure|OK|Okay|Certainly|Of course).+?[:：]\s*/gim,
-      /Chunk\s+\d+\s*[*\-•]\s*Document language:\s*\w+\s*[*\-•].+$/gim,
-      /^[\-*•]\s*(?:Chunk|Document language|Please translate).+$/gim,
-      /^(?:Based on|According to|As per).+?(?:instructions|prompt|request).+?[:：]/gim,
-    ];
-
-    let cleaned = response;
-    for (const pattern of patterns) {
-      cleaned = cleaned.replace(pattern, '');
-    }
-
-    return cleaned.trim();
-  }
-
-  // ========== 辅助方法 ==========
-
-  private buildSectionTree(blocks: BlockContent[], structure: any): Section[] {
-    const sections: Section[] = [];
-    let currentSection: Section | null = null;
-    let currentSubsection: Section | null = null;
-    let currentSubSubsection: Section | null = null;
-
-    for (const block of blocks) {
-      if (block.type === 'heading') {
-        const headingBlock = block as any;
-        
-        // 确保使用唯一ID
-        const sectionId = this.generateUniqueId('section');
-        
-        const newSection: Section = {
-          id: sectionId,
-          number: headingBlock.number || undefined,
-          title: {
-            en: this.extractTextFromInline(headingBlock.content?.en),
-            zh: this.extractTextFromInline(headingBlock.content?.zh)
-          },
-          content: [],
-          subsections: []
-        };
-
-        if (headingBlock.level === 1) {
-          sections.push(newSection);
-          currentSection = newSection;
-          currentSubsection = null;
-          currentSubSubsection = null;
-        } else if (headingBlock.level === 2 && currentSection) {
-          currentSection.subsections!.push(newSection);
-          currentSubsection = newSection;
-          currentSubSubsection = null;
-        } else if (headingBlock.level === 3 && currentSubsection) {
-          currentSubsection.subsections!.push(newSection);
-          currentSubSubsection = newSection;
-        } else if (headingBlock.level === 4 && currentSubSubsection) {
-          currentSubSubsection.subsections!.push(newSection);
-        } else if (currentSubsection) {
-          currentSubsection.subsections!.push(newSection);
-        } else if (currentSection) {
-          currentSection.subsections!.push(newSection);
-        } else {
-          sections.push(newSection);
-          currentSection = newSection;
-        }
-      } else {
-        // 确保内容块有唯一ID
-        if (!block.id || this.usedIds.has(block.id)) {
-          block.id = this.generateUniqueId(block.type);
-        }
-        
-        if (currentSubSubsection) {
-          currentSubSubsection.content.push(block);
-        } else if (currentSubsection) {
-          currentSubsection.content.push(block);
-        } else if (currentSection) {
-          currentSection.content.push(block);
-        } else {
-          if (sections.length === 0) {
-            sections.push({
-              id: this.generateUniqueId('section'),
-              title: { en: '', zh: '' },
-              content: [],
-              subsections: []
-            });
-          }
-          sections[sections.length - 1].content.push(block);
-        }
-      }
-    }
-
-    return sections;
-  }
-
-  private extractTextFromInline(inline: any): string {
-    if (!inline || !Array.isArray(inline)) return '';
-    return inline
-      .map((node: any) => {
-        if (node.type === 'text') return node.content;
-        if (node.type === 'link' && node.children) {
-          return this.extractTextFromInline(node.children);
-        }
-        return '';
-      })
-      .join('');
-  }
-
-  private extractReferencesSection(content: string, structure: any): string | null {
-    const lines = content.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (line.match(/^#+\s*(references|bibliography|参考文献)/i)) {
-        return lines.slice(i + 1).join('\n');
-      }
-    }
-    return null;
-  }
-
   private isExternalUrl(url: string): boolean {
-    return url.startsWith('http://') || url.startsWith('https://');
+    return /^https?:\/\//i.test(url);
   }
 
-  private async downloadImage(url: string, figureId: string): Promise<string> {
+  private async downloadImage(url: string, blockId: string): Promise<string> {
     const imageDir = path.join(__dirname, '../../data/uploads/images', this.paperId);
     await fs.mkdir(imageDir, { recursive: true });
-
+    
     let ext = '.jpg';
     try {
-      const parsedUrl = new URL(url);
-      ext = path.extname(parsedUrl.pathname) || '.jpg';
-    } catch (e) {
-      console.warn(`无效的图片URL: ${url}`);
-    }
-
-    const filename = `${figureId}${ext}`;
+      const u = new URL(url);
+      const g = path.extname(u.pathname);
+      if (g) ext = g;
+    } catch { /* noop */ }
+    
+    const filename = `${blockId}${ext || '.jpg'}`;
     const localPath = path.join(imageDir, filename);
-
+    
     const response = await axios.get(url, {
       responseType: 'arraybuffer',
       timeout: 30000,
       headers: { 'User-Agent': 'Mozilla/5.0' }
     });
-
+    
     await fs.writeFile(localPath, response.data);
     return `/uploads/images/${this.paperId}/${filename}`;
   }
 
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  private async processImages(sections: Section[]): Promise<void> {
+    const figures: any[] = [];
+    const collect = (sec: Section) => {
+      for (const b of sec.content) {
+        if (b.type === 'figure') figures.push(b as any);
+      }
+      for (const s of sec.subsections || []) collect(s);
+    };
+    
+    for (const s of sections) collect(s);
+
+    for (let i = 0; i < figures.length; i++) {
+      const fig = figures[i];
+      this.updateProgress('images', 92 + Math.floor((i / Math.max(1, figures.length)) * 6), {
+        totalImages: figures.length,
+        imagesProcessed: i
+      });
+      
+      if (fig.src && this.isExternalUrl(fig.src)) {
+        try {
+          const local = await this.downloadImage(fig.src, fig.id || this.generateUniqueId('figure'));
+          fig.src = local;
+          fig.uploadedFilename = path.basename(local);
+          this.logProgress(`  ✅ Downloaded image: ${fig.src}`);
+        } catch (e: any) {
+          this.logProgress(`  ⚠️  Image download failed: ${e.message}`);
+        }
+      }
+    }
+  }
+
+  private sleep(ms: number) {
+    return new Promise(res => setTimeout(res, ms));
   }
 
   private updateProgress(
     status: ParseJobStatus,
     percentage: number,
-    extra?: Partial<ParseProgress>
+    extra?: Partial<ParseProgress> & { 
+      lineProcessed?: number; 
+      lineTotal?: number; 
+      message?: string;
+    }
   ): void {
     if (this.progressCallback) {
       this.progressCallback({
         status,
         percentage,
-        message: ParseStatusMessages[status],
+        message: extra?.message ?? ParseStatusMessages[status],
+        lineProcessed: extra?.lineProcessed,
+        lineTotal: extra?.lineTotal,
         ...extra
-      });
+      } as any);
     }
   }
-}
-
-// ========== 导出的辅助函数 ==========
-
-export interface ParsedMarkdownInfo {
-  title?: string;
-  authors?: string[];
-  abstract?: string;
-  keywords?: string[];
-  content: string;
-}
-
-export function parseMarkdownContent(markdownContent: string): ParsedMarkdownInfo {
-  let title = '未知标题';
-  const titleMatch = markdownContent.match(/^#\s+(.+)$/m);
-  if (titleMatch && titleMatch[1]) {
-    title = titleMatch[1].trim();
-  }
-
-  const authors: string[] = [];
-  const authorMatch = markdownContent.match(/^##?\s*(?:Author|作者)[s:]?\s*(.+)$/mi);
-  if (authorMatch && authorMatch[1]) {
-    const authorText = authorMatch[1].trim();
-    authors.push(...authorText.split(/[,，;；]/).map(a => a.trim()).filter(Boolean));
-  }
-
-  let abstract = '';
-  const abstractMatch = markdownContent.match(/^##?\s*(?:Abstract|摘要)\s*\n+(.+?)(?=\n#|$)/mis);
-  if (abstractMatch && abstractMatch[1]) {
-    abstract = abstractMatch[1].trim();
-  }
-
-  const keywords: string[] = [];
-  const keywordsMatch = markdownContent.match(/^##?\s*(?:Keywords?|关键词)[:]?\s*(.+)$/mi);
-  if (keywordsMatch && keywordsMatch[1]) {
-    const keywordsText = keywordsMatch[1].trim();
-    keywords.push(...keywordsText.split(/[,，;；]/).map(k => k.trim()).filter(Boolean));
-  }
-
-  return {
-    title,
-    authors: authors.length > 0 ? authors : ['未知作者'],
-    abstract: abstract || '暂无摘要',
-    keywords: keywords.length > 0 ? keywords : [],
-    content: markdownContent
-  };
-}
-
-export function validateMarkdownFile(filename: string, content: string): { valid: boolean; error?: string } {
-  const validExtensions = ['.md', '.markdown'];
-  const fileExtension = filename.toLowerCase().slice(filename.lastIndexOf('.'));
-  
-  if (!validExtensions.includes(fileExtension)) {
-    return {
-      valid: false,
-      error: '只支持 .md 或 .markdown 格式的文件'
-    };
-  }
-
-  if (!content || content.trim().length === 0) {
-    return {
-      valid: false,
-      error: 'Markdown 文件内容不能为空'
-    };
-  }
-
-  if (content.length > 2 * 1024 * 1024) {
-    return {
-      valid: false,
-      error: 'Markdown 文件过大，请确保文件小于 2MB'
-    };
-  }
-
-  return { valid: true };
 }

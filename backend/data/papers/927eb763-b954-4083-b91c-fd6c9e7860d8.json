@@ -1,0 +1,4397 @@
+{
+  "abstract": {},
+  "keywords": [
+    "Firm 1 Firm 2 Industry 1 Industry 2",
+    "Industry-Specific",
+    "Index Terms—Data Mining",
+    "Sentiment Analysis",
+    "Time Series Forecasting"
+  ],
+  "sections": [
+    {
+      "id": "section-7dd23004-ab8c-4895-ba6a-b096f414e54e",
+      "title": {
+        "en": "INTRODUCTION",
+        "zh": ""
+      },
+      "content": [
+        {
+          "id": "paragraph-bb114b5d-acd1-4fce-83f1-078200a1ea4a",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "As an irrational shock, sentiment can influence financial markets by affecting asset prices, real economic production, and other macroeconomic variables [1]. In quantitative research of the financial domain, sentiment analysis (or opinion mining) aims to quantify investor sentiment (such as bullish, bearish, or neutral) from textual data and serves as a useful feature that complements traditional financial and economic indices reflecting fundamentals and captures perceived risk or market outlook. By incorporating sentiment, forecasting models can be improved in downstream tasks such as forecasting market trends, trading volume, and risk [2]-[5].\nHowever, the context of financial texts is often subtle and complex. Ahbali et al. pointed out that a single news paragraph may contain sentences about different firms with different\n*Corresponding author: Yiwei Liu (lew1sin@outlook.com) and Xuebin Chen (chenxb@fudan.edu.cn).\nThis paper was supported by the National Natural Science Foundation of China [grant numbers 72371178].\nWe made our code repository publicly available on https://github.com/LEw1sin/fin_senti.\nsentiments [6], which can confuse a naive classifier. The following is an example:\n\"Tong Guang Convertible Bond surged over  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "11\\%"
+              },
+              {
+                "type": "text",
+                "content": " , ranking first in gains, while Tian Lu Convertible Bond led the decline, dropping more than  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "8\\%"
+              },
+              {
+                "type": "text",
+                "content": " .\"\nTrivially, the sentiment polarities of Tong Guang Convertible Bond and Tian Lu Convertible Bond in the above are opposite. Most existing sentiment analysis methods applied in quantitative research extract a single overall sentiment from a text segment, without considering the heterogeneity of textual impact on different firms (firm-specific) [3], [4], [6], [7]. Therefore, we argue that sentiment analysis for financial texts requires a more fine-grained sentiment measurement approach, which leads to the first question this work aims to address:"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "unordered-list-744156d9-b457-4c3c-9008-7799a8467f9c",
+          "type": "unordered-list",
+          "items": [
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Q1: How to precisely analyze the sentiment of entities with different polarities from a firm-specific view under subtle and complex contexts within the same text?"
+                  }
+                ],
+                "zh": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "paragraph-b4c6c9fc-ed7a-4d0f-b664-864e71525d24",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "Financial texts may describe asset price fluctuations and issuer conditions, as well as industry environments and trends. The latter can be regarded as industry-wide risks that may be transmitted to micro-level individuals [8]. Unfortunately, current sentiment analysis frameworks fail to consider the heterogeneity of textual impact on industries (industry-specific), and therefore cannot handle cases where a firm-specific sentiment may deviate from the overall industry trend [9]. This leads to the second question this work aims to address:"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "unordered-list-6a506817-f44a-4d6b-a73a-9ae2d434f0f0",
+          "type": "unordered-list",
+          "items": [
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Q2: How to derive the sentiment transmitted from the broader industry environment to related firms from an industry-specific view?"
+                  }
+                ],
+                "zh": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "paragraph-b022a804-36e9-490e-a624-b13343f69008",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "Studies from the perspective of communication have shown that due to mechanisms such as Chasing Noise [10], the impact of financial texts on assets is often non-instantaneous and nonlinear. That is, the information reflected in texts diffuses into the investment behavior of economic agents in the market with latency and persistence. These shocks are multi-phase, with varying intensity over time. Current sentiment analysis frameworks fail to incorporate such sentiment duration, which leads to the third question this work aims to address:"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "unordered-list-e774b67e-96c7-4800-abab-c1f4ebcd20bb",
+          "type": "unordered-list",
+          "items": [
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Q3: How to capture the duration of text sentiment by considering its latency and persistence, enabling individual texts to interact with others and diffuse their effect from a single time point to the entire time series?"
+                  }
+                ],
+                "zh": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "paragraph-19f6d48a-ebca-4fb7-9abf-6375845b0ca9",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "Breakthroughs in natural language processing (NLP) offer insights for addressing the above questions. Although pre-trained language models (PLMs) and large language models (LLMs) have gained increasing attention in the financial domain such as FinBERT [11], FinGPT [12], and BloombergGPT [13], which consistently outperform traditional NLP methods on general benchmark tasks [14], many well-researched NLP tasks have not yet been effectively grounded in financial applications.\nFor Q1, it is an aspect-based sentiment analysis (ABSA) task in the NLP domain, which involves labeling the sentiment of different entities within a sequence. Thus to solve Q1, we finetuned a BERT to perform ABSA in an end-to-end manner.\nFor Q2, the knowledge graph technology in the NLP domain is a powerful tool for capturing associations and enabling retrieval for big data. With it, we can model the transmission of industry-level risk to related individuals using the relationships between firms and their associated industries. Thus to solve Q2, we first transform the text sentiment into a topic view, then use retrieval-augmented generation (RAG) based on a knowledge graph to propagate it to the relevant industries, and finally to the corresponding firms.\nFor Q3, considering a time series composed of sentiment values at continuous but distinct time points, in order to filter out noise and extract a smooth latent trend, we can apply smoothing functions from signal processing. Thus to solve Q3, we aggregate the firm-specific and industry-specific sentiment and apply wavelet smoothing to filter out noise, ultimately obtaining a composite sentiment time series that reflects long-term trends and considers interactions among texts.\nTherefore, the overview of our framework is shown as Fig. 1 and our contributions in this work are as follows:"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "ordered-list-0d08acfa-42c5-4a8a-b206-8c6620d48e87",
+          "type": "ordered-list",
+          "items": [
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Data Collection: We chose the Chinese bond market as the subject of our study, and constructed a texts corpus spanning 2013-2023, which covers bond-related news, firm announcements, analyst reports, and firm disclosures and amounts to 1,390,946 entries."
+                  }
+                ],
+                "zh": []
+              }
+            },
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Composite Sentiment Extraction: We proposed a framework for constructing a composite sentiment using a hybrid with PLMs and LLMs. This index comprehensively considers the micro-level granularity of individual firms involved in the texts, the meso-level industries that may transmit effects to related firms, as well as the latency and persistence of textual impact."
+                  }
+                ],
+                "zh": []
+              }
+            },
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Bond Default Risk Forecasting Modeling: To validate the effectiveness of sentiment, we selected bond default risk forecasting as the downstream task to backtest whether the extracted text sentiment, when used as an additional feature, can improve forecasting performance. Comparative and ablation experiments demonstrate the effectiveness of our framework in reducing prediction error, with a  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "3.25\\%"
+                  },
+                  {
+                    "type": "text",
+                    "content": "  reduction in MAE and a  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "10.96\\%"
+                  },
+                  {
+                    "type": "text",
+                    "content": "  reduction in MAPE, and the extracted sentiment is also found to be associated with social risk events."
+                  }
+                ],
+                "zh": []
+              }
+            }
+          ]
+        }
+      ],
+      "subsections": []
+    },
+    {
+      "id": "section-ed51cd83-e209-408d-8880-423205b0d0c1",
+      "title": {
+        "en": "RELATED WORKS",
+        "zh": ""
+      },
+      "content": [
+        {
+          "id": "paragraph-2b938f50-cdf8-4ef7-a979-aa796413d74a",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "Sentiment analysis (SA), which is considered as an extension of data mining and knowledge discovery in databases intended for unstructured textual data, can be categorized into sentence-level sentiment analysis (SLSA) and aspect-based sentiment analysis (ABSA). The former outputs the overall sentiment of a sentence in an end-to-end manner, whereas the latter is treated as a sequence labeling problem that identifies the sentiment of a specific target within the sentence. However, traditional methods assume a single overall sentiment at the whole-document level, i.e., SLSA, which \"may not be the case in practice\" [15], especially in the financial market. Early research primarily focused on dictionary-based methods quantifying sentiment by counting positive and negative words, which struggle to account for domain-specific semantic subtleties [7]. As data availability increased, researchers began adopting machine learning techniques such as Naïve Bayes classifiers [16], [17], which rely on manual feature engineering, thus limiting their ability to capture the nuanced meaning of financial terminology.\nThis limitation was addressed with Transformer-based architectures due to the powerful representation capabilities of self-attention. Transformer-based pre-trained language models (PLMs) and large language models (LLMs) not only outperform traditional models on the SLSA benchmark using the FPB [18] and FiQA-SA [19] datasets, but also achieve strong performance on the ABSA benchmark, indicating that this task in the NLP domain has been effectively addressed. We observe that as a discriminative task, discriminative PLMs outperform generative LLMs in SA. Notably, FLANG-ELECTRA [20] achieved the best results, attaining an F1-score of  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "92\\%"
+              },
+              {
+                "type": "text",
+                "content": " , surpassing generative models such as FinGPT, BloombergGPT, and GPT-4 [14]. However, in quantitative research, SA is seldom treated as a more fine-grained ABSA task using Transformer-based models [11].\nSince the concept of an industry or sector exists primarily in financial markets, it is rarely discussed in the NLP domain. In recent years, some studies have explored sentiment consistency among related firms within the same industry. Liu et al. constructed an \"enterprise knowledge graph\" of firms and showed that ignoring correlations (e.g., industry co-movement) can result in missing important spillover effects [21]. Jochem et al. demonstrated that bias can propagate along supply chains [22]. Cao et al. highlighted that industry-level sentiment or news can permeate to firm-level sentiment via graph links or information diffusion paths [23]. However, none of these studies explicitly define or utilize firm-specific sentiment.\nAnother key theme is how sentiment effects play out over time including latency and persistence. Studies often find that market reactions to sentiment are not instantaneous [24], i.e., news may have a lagged impact or gradual diffusion. DeFond et al. documented that bond investors initially overreact to bad earnings news, and then correct this overreaction after the official announcement [25], indicating that sentiment takes time to fade away. However, in current quantitative forecasting models that incorporate sentiment, we have not observed any work that explicitly accounts for such lag effects."
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "figure-e2a1f43f-832b-46b6-88e2-c8e332b9a300",
+          "type": "figure",
+          "src": "/uploads/images/927eb763-b954-4083-b91c-fd6c9e7860d8/figure-e2a1f43f-832b-46b6-88e2-c8e332b9a300.jpg",
+          "caption": {
+            "en": [
+              {
+                "type": "text",
+                "content": "Task Decomposition. Each task corresponds to one of our contributions in Section I."
+              }
+            ],
+            "zh": []
+          },
+          "uploadedFilename": "figure-e2a1f43f-832b-46b6-88e2-c8e332b9a300.jpg"
+        },
+        {
+          "id": "figure-d46f2810-5b66-4528-a5fd-a43cc0c6252f",
+          "type": "figure",
+          "src": "/uploads/images/927eb763-b954-4083-b91c-fd6c9e7860d8/figure-d46f2810-5b66-4528-a5fd-a43cc0c6252f.jpg",
+          "caption": {
+            "en": [],
+            "zh": []
+          },
+          "uploadedFilename": "figure-d46f2810-5b66-4528-a5fd-a43cc0c6252f.jpg"
+        },
+        {
+          "id": "figure-f95b7f31-09e1-45bd-ad4c-bf7c87982435",
+          "type": "figure",
+          "src": "/uploads/images/927eb763-b954-4083-b91c-fd6c9e7860d8/figure-f95b7f31-09e1-45bd-ad4c-bf7c87982435.jpg",
+          "caption": {
+            "en": [],
+            "zh": []
+          },
+          "uploadedFilename": "figure-f95b7f31-09e1-45bd-ad4c-bf7c87982435.jpg"
+        }
+      ],
+      "subsections": []
+    },
+    {
+      "id": "section-2d917916-79b6-443e-b96d-0235c94eefcb",
+      "title": {
+        "en": "METHODOLOGY",
+        "zh": ""
+      },
+      "content": [],
+      "subsections": []
+    },
+    {
+      "id": "section-8278df34-2a0e-498f-800c-21026b486d45",
+      "title": {
+        "en": "Terminology And Task Decomposition",
+        "zh": ""
+      },
+      "content": [
+        {
+          "id": "paragraph-f82c7177-5950-435d-9d5f-8fe92844c651",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "In this work, we define sentiment  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s"
+              },
+              {
+                "type": "text",
+                "content": "  of a single text as a continuous value ranging from -1 to 1:"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "math-ec615c92-c7a7-46f8-8b8b-0a4313728579",
+          "type": "math",
+          "latex": "s \\in [ - 1, 1 ]. \\tag {1}"
+        },
+        {
+          "id": "paragraph-c9e33e14-42f4-4720-bc3c-b6e3cca5053c",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "There are financial implications at three polarities:  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s = -1"
+              },
+              {
+                "type": "text",
+                "content": "  indicates pessimism, suggesting deteriorating expectations or higher risk;  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s = 0"
+              },
+              {
+                "type": "text",
+                "content": "  is neutral, meaning no clear market impact;  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s = 1"
+              },
+              {
+                "type": "text",
+                "content": "  signals improved expectations or positive drivers.\nOverall, our work can be summarized into three tasks as shown in Fig. 2. Task 1 is the data collection stage, where data are gathered for use in downstream processes. Task 2 is the core of this work, integrating bond sentiment extracted from unstructured texts across multiple views. Task 3 quantitatively verifies the effectiveness of the sentiment extracted in Task 2.\nFor Task 2, it can be decomposed as follows:"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "unordered-list-47d343a8-7e5a-4978-b72f-b196dc967ad1",
+          "type": "unordered-list",
+          "items": [
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Micro-Level ABSA for firm-specific sentiment  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "s_{\\alpha}"
+                  },
+                  {
+                    "type": "text",
+                    "content": " : We fine-tuned a BERT model to perform ABSA on multiple firms mentioned in the same text (see Section. III-C)."
+                  }
+                ],
+                "zh": []
+              }
+            },
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Meso-Level SLSA for industry-specific sentiment  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "s_{\\beta}"
+                  },
+                  {
+                    "type": "text",
+                    "content": " : We employed RAG based on knowledge graph and prompt engineering to interact with a GPT agent for SLSA (see Section. III-D)."
+                  }
+                ],
+                "zh": []
+              }
+            },
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Aggregation and Duration Function: Aggregation merges  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "s_{\\alpha}"
+                  },
+                  {
+                    "type": "text",
+                    "content": "  and  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "s_{\\beta}"
+                  },
+                  {
+                    "type": "text",
+                    "content": "  into the composite sentiment  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "\\hat{s}"
+                  },
+                  {
+                    "type": "text",
+                    "content": " , and the duration function  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "h(\\cdot)"
+                  },
+                  {
+                    "type": "text",
+                    "content": "  accounts for the effective duration of texts and the interrelationships among multiple texts (see Section. III-E)."
+                  }
+                ],
+                "zh": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "paragraph-ab805611-c545-4364-8fdb-254dd0a37608",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "For Task 3, we need a bond default risk forecasting (BDRF) model that integrates structured features with sentiment to backtest its effectiveness (see Section. III-F).\nFor Task 1, we need five datasets in total to facilitate Task 2 and Task 3:"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "unordered-list-5a41fc5e-15fe-4e98-9df6-229c11f80963",
+          "type": "unordered-list",
+          "items": [
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "A labeled sentiment corpus  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "\\mathcal{D}_1"
+                  },
+                  {
+                    "type": "text",
+                    "content": "  for ABSA fine-tuning."
+                  }
+                ],
+                "zh": []
+              }
+            },
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "A Knowledge Graph  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "\\mathcal{G}"
+                  },
+                  {
+                    "type": "text",
+                    "content": "  of topics and a Knowledge Base  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "\\mathcal{B}"
+                  },
+                  {
+                    "type": "text",
+                    "content": "  containing topic definitions to support RAG, which are used as a transmission tool to derive industry-specific sentiment."
+                  }
+                ],
+                "zh": []
+              }
+            },
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "A large-scale unlabeled corpus  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "\\mathcal{D}_2"
+                  },
+                  {
+                    "type": "text",
+                    "content": "  for inference the sentiment times series of all bonds."
+                  }
+                ],
+                "zh": []
+              }
+            },
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "A dataset  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "\\mathcal{D}_3"
+                  },
+                  {
+                    "type": "text",
+                    "content": "  of bonds with structured features used in."
+                  }
+                ],
+                "zh": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "paragraph-be93ed0b-6099-428f-a58b-542070b311b8",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "Currently, no publicly available Chinese datasets meet these requirements for the BDRF domain. Thus, we must construct them ourselves (see Section. III-B).\nThe absence of macro-level sentiment in the above framework is because,  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{D}_3"
+              },
+              {
+                "type": "text",
+                "content": "  already incorporates macroeconomic indices such as GDP."
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        }
+      ],
+      "subsections": []
+    },
+    {
+      "id": "section-49ba8332-bec1-4330-9900-41ca7367d23c",
+      "title": {
+        "en": "Datasets in Task 1",
+        "zh": ""
+      },
+      "content": [
+        {
+          "id": "paragraph-3dbe3810-72d6-4d2b-a914-d2f61d8a7852",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "Considering that user sentiment on informal platforms like social media exhibits significant fluctuations, which can introduce challenging noise [26], we selected formal texts concerning firms in the mainland China bond market as the research focus. These texts consist of bond-related news, firm announcements, analyst reports, and firm disclosures."
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "ordered-list-58f88f89-555b-4a4e-9840-3f6f9577ae52",
+          "type": "ordered-list",
+          "items": [
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Labeled Sentiment Corpus  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "\\mathcal{D}_1"
+                  },
+                  {
+                    "type": "text",
+                    "content": " : We downloaded 6,881 formal Chinese texts from  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "RESSET^1"
+                  },
+                  {
+                    "type": "text",
+                    "content": "  and  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "Wind^2"
+                  },
+                  {
+                    "type": "text",
+                    "content": " , and then our financial experts assigned soft labels to them in the form of probability distributions over sentiment polarities:"
+                  }
+                ],
+                "zh": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "math-74fa7639-2259-4355-b329-59598891c530",
+          "type": "math",
+          "latex": "\\mathbf {p} _ {s} = \\left[ p _ {\\text {n e g}}, p _ {\\text {n e u}}, p _ {\\text {p o s}} \\right], \\quad \\text {s . t .} \\quad p _ {\\text {n e g}} + p _ {\\text {n e u}} + p _ {\\text {p o s}} = 1 \\tag {2}"
+        },
+        {
+          "id": "paragraph-c3722612-0467-4555-b442-6c6294e11772",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "where  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "p_{\\text{neg}}"
+              },
+              {
+                "type": "text",
+                "content": " ,  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "p_{\\text{neu}}"
+              },
+              {
+                "type": "text",
+                "content": "  and  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "p_{\\text{pos}}"
+              },
+              {
+                "type": "text",
+                "content": "  are the probabilities of negative, neutral and positive polarity, respectively."
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "ordered-list-e126bc26-5a7a-4d35-9b27-d23ccf87ccb4",
+          "type": "ordered-list",
+          "items": [
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Knowledge Graph  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "\\mathcal{G}"
+                  },
+                  {
+                    "type": "text",
+                    "content": "  And Knowledge Base  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "\\mathcal{B}"
+                  },
+                  {
+                    "type": "text",
+                    "content": " : We selected all 28 primary industries and 12 significant secondary industries according to SWS RESEARCH "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "^3"
+                  },
+                  {
+                    "type": "text",
+                    "content": " , forming a comprehensive set of 40 industries. Additionally, we defined 117 topics across various domains, with details in Appendix. A. The base  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "\\mathcal{B}"
+                  },
+                  {
+                    "type": "text",
+                    "content": "  is the definitions of all 117 topics, and the graph  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "\\mathcal{G}"
+                  },
+                  {
+                    "type": "text",
+                    "content": "  is a predefined Boolean matrix:"
+                  }
+                ],
+                "zh": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "math-3fb850f5-b7ac-4992-b68c-438a53f189da",
+          "type": "math",
+          "latex": "\\mathcal {G} = \\left( \\begin{array}{c c c c} g _ {1, 1} & g _ {1, 2} & \\dots & g _ {1, 1 1 7} \\\\ g _ {2, 1} & g _ {2, 2} & \\dots & g _ {2, 1 1 7} \\\\ \\vdots & \\vdots & \\ddots & \\vdots \\\\ g _ {4 0, 1} & g _ {4 0, 2} & \\dots & g _ {4 0, 1 1 7} \\end{array} \\right) _ {4 0 \\times 1 1 7}, \\tag {3}"
+        },
+        {
+          "id": "math-e0354fa1-88b8-4ae8-a213-9511c89472ee",
+          "type": "math",
+          "latex": "s. t. \\quad g _ {m, n} = \\mathbb {1} _ {n \\sim m}"
+        },
+        {
+          "id": "paragraph-e72b9dea-d283-4571-a9be-423d10208021",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "where  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "m"
+              },
+              {
+                "type": "text",
+                "content": "  is one of a predefined set of industries, with a total of 40 industries, and  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "n"
+              },
+              {
+                "type": "text",
+                "content": "  is one of a predefined set of topics, with a total of 117 topics. The notation  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "n \\sim m"
+              },
+              {
+                "type": "text",
+                "content": "  indicates that topic  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "n"
+              },
+              {
+                "type": "text",
+                "content": "  has an impact on industry  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "m"
+              },
+              {
+                "type": "text",
+                "content": " , where  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "g_{m,n} = 1"
+              },
+              {
+                "type": "text",
+                "content": "  if topic  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "n"
+              },
+              {
+                "type": "text",
+                "content": "  influences industry  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "m"
+              },
+              {
+                "type": "text",
+                "content": "  and  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "g_{m,n} = 0"
+              },
+              {
+                "type": "text",
+                "content": "  otherwise.\n<sup>1</sup>https://www.resset.com/index/home/ 2https://www.wind.com.cn/portal/en/EDB/index.html <sup>3</sup>https://www.swsresearch.com/institute_sw/home"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "ordered-list-bb4e6ff0-7f0c-49fb-891f-8fa53636f1e5",
+          "type": "ordered-list",
+          "items": [
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Large-scale Unlabeled Corpus  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "\\mathcal{D}_2"
+                  },
+                  {
+                    "type": "text",
+                    "content": " : We constructed a corpus with daily frequency spanning eleven years (2013 to 2023) from Infobank and WiseSearch, containing a total of 1,390,946 entries, with a daily frequency making the composite text sentiment a medium-frequency factor."
+                  }
+                ],
+                "zh": []
+              }
+            },
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Firms Features Dataset  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "\\mathcal{D}_3"
+                  },
+                  {
+                    "type": "text",
+                    "content": " : We collected 6,472 bonds from  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "iFinD^6"
+                  },
+                  {
+                    "type": "text",
+                    "content": "  spanning eleven years (2013 to 2023) with 45 features (categorization and the complete list of feature names can be found in Appendix. B). It is a time-series tabular dataset where columns are feature names and rows correspond to a bond's features on a specific day. The dataset was split for Task 3 at the bond level, rather than the time-series level, into training, validation, and test subsets in a 7:1:2 ratio."
+                  }
+                ],
+                "zh": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "paragraph-51897ae6-cee7-4a97-a30c-bf94ad92aa07",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "With  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{D}_3"
+              },
+              {
+                "type": "text",
+                "content": " , we can obtain information on bonds and the firms issuing them. Therefore, we further divide  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{D}_2"
+              },
+              {
+                "type": "text",
+                "content": "  into two subsets (it can be achieved by named entity recognition (NER); however, it is beyond this paper, so we skip that): the micro-level ABSA inference dataset  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{D}_{2,\\alpha}"
+              },
+              {
+                "type": "text",
+                "content": " , which contains a total of 563,493 entries, and the meso-level SLSA inference dataset  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{D}_{2,\\beta}"
+              },
+              {
+                "type": "text",
+                "content": " , which contains a total of 827,453 entries."
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        }
+      ],
+      "subsections": []
+    },
+    {
+      "id": "section-23772055-4357-4662-a707-3f1e6eecef4c",
+      "title": {
+        "en": "Firm-Specific Sentiment Analysis in Task 2",
+        "zh": ""
+      },
+      "content": [
+        {
+          "id": "figure-34e6721e-e529-46b3-90e5-83505ab1cc31",
+          "type": "figure",
+          "src": "/uploads/images/927eb763-b954-4083-b91c-fd6c9e7860d8/figure-34e6721e-e529-46b3-90e5-83505ab1cc31.jpg",
+          "caption": {
+            "en": [
+              {
+                "type": "text",
+                "content": "ABSA Procedure."
+              }
+            ],
+            "zh": []
+          },
+          "uploadedFilename": "figure-34e6721e-e529-46b3-90e5-83505ab1cc31.jpg"
+        },
+        {
+          "id": "paragraph-f5858137-5f10-4d06-8193-4a848b475862",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "As mentioned in Section. II, discriminative PLMs outperform generative LLMs in SA. Therefore, to be conducive to the more fine-grained ABSA, we fine-tuned a BERT model  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "f_{1}(\\cdot)"
+              },
+              {
+                "type": "text",
+                "content": "  followed by a multilayer perception (MLP). This subtask is trained in a supervised manner on labeled  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{D}_1"
+              },
+              {
+                "type": "text",
+                "content": "  and inferred on unlabeled  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{D}_{2,\\alpha}"
+              },
+              {
+                "type": "text",
+                "content": " .\n4http://hk.infobank.cn/ <sup>5</sup>https://www.wisers.com/ <sup>6</sup>https://ft.10jqka.com.cn/\nInstead of treating ABSA as a sequence labeling problem, we directly output the sentiment for each entity in an end-to-end manner. The process of a single text is shown in Fig. 3. After forwarding the text through BERT, we obtain both sentence-level and token-level embeddings. Since the same text may describe multiple bonds, we extract the embeddings of each bond-related token, stack them together, and then refer to the mean-max pooling algorithm [27] to obtain the global representation of the bond. The sentence-level embedding is then concatenated with this representation and passed through an MLP to forecast the sentiment polarity with the highest probability, where the highest probability means the MLP outputs the probabilities of the three polarities: negative, neutral, and positive. Specifically, the mean-max pooling in our ABSA subtask for single text can be described as Algorithm. 1.\nAlgorithm 1: Mean-Max Pooling Input: labeled  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{D}_1"
+              },
+              {
+                "type": "text",
+                "content": "  , unlabeled  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{D}_{2,\\alpha}"
+              },
+              {
+                "type": "text",
+                "content": "  ABSA BERT  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "f_{1}(\\cdot)"
+              },
+              {
+                "type": "text",
+                "content": "  MLP, an arbitrary bond entity i Output: micro-level sentiment  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\alpha}"
+              },
+              {
+                "type": "text",
+                "content": " foreach text  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "j \\in \\mathcal{D}_1 \\cup \\mathcal{D}_{2,\\alpha}"
+              },
+              {
+                "type": "text",
+                "content": "  do [CLS] embedding, token-level embedding  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "f_{1}(j)"
+              },
+              {
+                "type": "text",
+                "content": "  . if  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "j"
+              },
+              {
+                "type": "text",
+                "content": "  contains i then stack the token-level embeddings of bond i to obtain its token list ; calculate the mean of the token list to get the one-dimensional avg; calculate the maximum of the token list to get the one-dimensional max ; concatenate [CLS] embedding, avg, max to get the global feature [[CLS]; avg; max] ；  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_\\alpha = \\max\\left(\\mathrm{MLP}\\left([\\mathrm{CLS}];\\mathrm{avg};\\max\\right]\\right)"
+              },
+              {
+                "type": "text",
+                "content": "  ：\nend 10 end 11 return micro-level sentiment  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\alpha}"
+              },
+              {
+                "type": "text",
+                "content": "\nDuring inference, since  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{D}_{2,\\alpha}"
+              },
+              {
+                "type": "text",
+                "content": "  is at a daily frequency, for a given bond  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "i"
+              },
+              {
+                "type": "text",
+                "content": " , there will either be excessive texts in a single day or none at all. Therefore, taking account of time series, we denote the calculation method for the micro-level sentiment  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\alpha,i,k}"
+              },
+              {
+                "type": "text",
+                "content": "  of an arbitrary bond on a given day as follows:"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "math-9f19786f-b53c-40c8-b4ae-b20c03c53515",
+          "type": "math",
+          "latex": "s _ {\\alpha , i, k} = \\left\\{ \\begin{array}{l} \\frac {1}{J _ {i}} \\sum_ {j = 1} ^ {J _ {i}} s _ {\\alpha , i, j, k}, J _ {i} \\geq 1 \\\\ 0, J _ {i} = 0 \\end{array} \\right., \\tag {4}"
+        },
+        {
+          "id": "paragraph-472a495f-d804-4855-a9eb-ef45d3addafb",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "where  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "i"
+              },
+              {
+                "type": "text",
+                "content": "  is an arbitrary bond,  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "j"
+              },
+              {
+                "type": "text",
+                "content": "  is an arbitrary text on a given day,  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "J_{i}"
+              },
+              {
+                "type": "text",
+                "content": "  is the number of texts for a given bond,  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "k"
+              },
+              {
+                "type": "text",
+                "content": "  is an arbitrary day,  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\alpha,i,j,k}"
+              },
+              {
+                "type": "text",
+                "content": "  is the micro-level sentiment of a particular text for a specific bond on a given day calculated by Algorithm. 1. This equation implies that the micro-level sentiment  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\alpha,i,k}"
+              },
+              {
+                "type": "text",
+                "content": "  of an arbitrary bond on a given day is the average of all sentiment values involving bond  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "i"
+              },
+              {
+                "type": "text",
+                "content": "  on that day, thus preventing the accumulation of text volume from leading to extremes. After the micro-level analysis, we get the firm\nspecific sentiment matrix  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "S_{\\alpha}"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "math-b4b882e7-a5c2-43c9-b153-748a0d08810f",
+          "type": "math",
+          "latex": "\\mathcal {S} _ {\\alpha} = \\left( \\begin{array}{c c c c} s _ {\\alpha , 1, 1} & s _ {\\alpha , 1, 2} & \\dots & s _ {\\alpha , 1, K} \\\\ s _ {\\alpha , 2, 1} & s _ {\\alpha , 2, 2} & \\dots & s _ {\\alpha , 2, K} \\\\ \\vdots & \\vdots & \\ddots & \\vdots \\\\ s _ {\\alpha , I, 1} & s _ {\\alpha , I, 2} & \\dots & s _ {\\alpha , I, K} \\end{array} \\right) _ {I \\times K}, \\tag {5}"
+        },
+        {
+          "id": "paragraph-09cad2cd-0e16-4bd7-9192-399712295373",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "where  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "I"
+              },
+              {
+                "type": "text",
+                "content": "  is the total number of firms, and  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "K"
+              },
+              {
+                "type": "text",
+                "content": "  is the total number of days in the time series. Since  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\alpha,i,k}"
+              },
+              {
+                "type": "text",
+                "content": "  is the average of firm-specific sentiment values associated with bond  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "i"
+              },
+              {
+                "type": "text",
+                "content": "  on day  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "k"
+              },
+              {
+                "type": "text",
+                "content": " , and each individual text's sentiment lies within the range  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "[-1,1]"
+              },
+              {
+                "type": "text",
+                "content": " , the range of  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\alpha,i,k}"
+              },
+              {
+                "type": "text",
+                "content": "  is also  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "[-1,1]"
+              },
+              {
+                "type": "text",
+                "content": " ."
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        }
+      ],
+      "subsections": []
+    },
+    {
+      "id": "section-caa67c27-b63f-4e46-81ca-0d8b6e4c47a2",
+      "title": {
+        "en": "Industry-Specific Sentiment Analysis in Task 2",
+        "zh": ""
+      },
+      "content": [
+        {
+          "id": "paragraph-e5b1f953-5671-41b6-b24a-88c8d895dd5e",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "Since LLMs possess zero-shot generalization capabilities [28] and achieve strong performance on classification tasks when prompted with few-shot learning [29] and Chain-of-Thought (CoT) reasoning [30], we treat GPT as an agent for the broader meso-level analysis. Using few-shot learning and CoT, GPT generates the sentiment of a given text with respect to its topic in an end-to-end manner. It is followed by RAG based on the Knowledge Graph  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{G}"
+              },
+              {
+                "type": "text",
+                "content": "  and Knowledge Base  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{B}"
+              },
+              {
+                "type": "text",
+                "content": " , mapping the topic to the relevant industries it may affect, thereby obtaining industry-specific sentiment. The dataset used for this SLSA subtask is  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{D}_{2,\\beta}"
+              },
+              {
+                "type": "text",
+                "content": " .\nThis process of a single text is illustrated in Fig. 4, which consists of three steps:"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "ordered-list-be41834a-412b-49ad-a8e8-61febce722f3",
+          "type": "ordered-list",
+          "items": [
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Each text is processed using prompt engineering and passed through a GPT agent to obtain a sentiment polarity (prompt details in Appendix. D)."
+                  }
+                ],
+                "zh": []
+              }
+            },
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "The text is encoded into an embedding using an embedding model. This embedding is then compared with the topic embeddings in the Knowledge Embedding Base  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "\\mathcal{B}^{\\prime}"
+                  },
+                  {
+                    "type": "text",
+                    "content": "  stored in the vector database by computing the cosine similarity. The top 5 most similar topics are recalled, and the sentiment obtained in the first step is assigned to these five topics."
+                  }
+                ],
+                "zh": []
+              }
+            },
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "The Boolean matrix Knowledge Graph  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "\\mathcal{G}"
+                  },
+                  {
+                    "type": "text",
+                    "content": "  is used as a bridge to map upstream topics to downstream industries, thereby deriving industry-specific sentiment."
+                  }
+                ],
+                "zh": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "paragraph-5700b09a-da9f-46f6-8568-6dfa5bd9e1a0",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "Their formalized pseudocode is shown in Algorithm 2. It is important to note that  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\beta}"
+              },
+              {
+                "type": "text",
+                "content": "  represents the sentiment of a specific industry, and we compute the cosine similarity in order to map topics to their associated industries based on the semantic similarity between embeddings, which can also be used subsequently to control the strength of influence on different industries. In  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "D_{3}"
+              },
+              {
+                "type": "text",
+                "content": " , the business scope or industry classification of the parent firm issuing each bond is often included. We can leverage this information to further match bonds with industries, thereby obtaining the meso-level sentiment. The transformation relationships among topics, industries, and bond are illustrated in Fig. 5.\nDuring inference, similar to ABSA, considering time series and excessive texts, the meso-level sentiment  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\beta ,i,k}"
+              },
+              {
+                "type": "text",
+                "content": "  of an"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "figure-837555b8-fe6a-416c-b87e-67a2a4d940ef",
+          "type": "figure",
+          "src": "/uploads/images/927eb763-b954-4083-b91c-fd6c9e7860d8/figure-837555b8-fe6a-416c-b87e-67a2a4d940ef.jpg",
+          "caption": {
+            "en": [
+              {
+                "type": "text",
+                "content": "SLSA Procedure."
+              }
+            ],
+            "zh": []
+          },
+          "uploadedFilename": "figure-837555b8-fe6a-416c-b87e-67a2a4d940ef.jpg"
+        },
+        {
+          "id": "paragraph-2c8cbeb7-660a-4e09-af12-9bcdedcfcae9",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "Algorithm 2: RAG Mapping Input: unlabeled  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{D}_{2,\\beta}"
+              },
+              {
+                "type": "text",
+                "content": "  GPT agent  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "f_{2}(\\cdot)"
+              },
+              {
+                "type": "text",
+                "content": "  embedding model  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "f_{3}(\\cdot)"
+              },
+              {
+                "type": "text",
+                "content": " Output: meso-level sentiment  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\beta}"
+              },
+              {
+                "type": "text",
+                "content": " 1 foreach text  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "j \\in \\mathcal{D}_{2,\\beta}"
+              },
+              {
+                "type": "text",
+                "content": "  do 2 text sentiment  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "f_{2}(j)"
+              },
+              {
+                "type": "text",
+                "content": "  .\n3 text embedding  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "f_{3}(j)"
+              },
+              {
+                "type": "text",
+                "content": "  .\n4 topics cosine similarity list  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathbf{l} ="
+              },
+              {
+                "type": "text",
+                "content": "  empty list;\n5 foreach topic  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "n \\in \\mathcal{B}'"
+              },
+              {
+                "type": "text",
+                "content": "  do 6 | 1 append  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\cos(f_3(j),f_3(n))"
+              },
+              {
+                "type": "text",
+                "content": "  .\n7 end 8 top5 nearest topics  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "="
+              },
+              {
+                "type": "text",
+                "content": "  filtered(l);\n9  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\beta}"
+              },
+              {
+                "type": "text",
+                "content": "  the sum of  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "f_{2}(j)"
+              },
+              {
+                "type": "text",
+                "content": "  multiplied by  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{G}"
+              },
+              {
+                "type": "text",
+                "content": "  and l;\n10 end 11 return meso-level sentiment  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\beta}"
+              },
+              {
+                "type": "text",
+                "content": "\narbitrary bond on a given day is computed as follows:"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "math-7b4d6267-6d20-4914-9b07-8e2f4c527193",
+          "type": "math",
+          "latex": "\\begin{array}{l} s _ {\\beta , i, k} = \\frac {1}{M ^ {*}} \\sum_ {m = 1} ^ {M ^ {*}} s _ {\\beta , m, k} \\\\ = \\left\\{ \\begin{array}{l} \\frac {1}{M ^ {*}} \\sum_ {m = 1} ^ {M ^ {*}} \\sum_ {n = 1} ^ {N ^ {*}} \\sum_ {j = 1} ^ {J _ {i}} c _ {j, n} \\cdot s _ {\\beta , n, j, k} \\cdot g _ {m, n}, J _ {i} \\geq 1 \\\\ 0, J _ {i} = 0 \\end{array} \\right., \\tag {6} \\\\ \\end{array}"
+        },
+        {
+          "id": "paragraph-4b060948-8a29-4962-86b1-8aed06dc90af",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "where  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "i"
+              },
+              {
+                "type": "text",
+                "content": "  is an arbitrary bond,  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "M^{*}"
+              },
+              {
+                "type": "text",
+                "content": "  represents the relevant industry to which the bond  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "i"
+              },
+              {
+                "type": "text",
+                "content": "  belongs,  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "j"
+              },
+              {
+                "type": "text",
+                "content": "  is an arbitrary text on a given day,  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "k"
+              },
+              {
+                "type": "text",
+                "content": "  is an arbitrary day,  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\beta ,n,j,k}"
+              },
+              {
+                "type": "text",
+                "content": "  is the sentiment of a particular text for a specific topic on a given day,  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "J_{i}"
+              },
+              {
+                "type": "text",
+                "content": "  is the number of text for a given bond.  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "g_{m,n}"
+              },
+              {
+                "type": "text",
+                "content": "  is the influence of topic  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "n"
+              },
+              {
+                "type": "text",
+                "content": "  on industry  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "m"
+              },
+              {
+                "type": "text",
+                "content": " , taking a value of either 0 or 1.  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "N^{*}"
+              },
+              {
+                "type": "text",
+                "content": "  is the top 5 most similar topics retrieved through  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{B}'"
+              },
+              {
+                "type": "text",
+                "content": " , with  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "c_{j,n}"
+              },
+              {
+                "type": "text",
+                "content": "  denoting the cosine similarity between the embedding of text  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "j"
+              },
+              {
+                "type": "text",
+                "content": "  and the embeddings of the top 5 most similar topics  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "N^{*}"
+              },
+              {
+                "type": "text",
+                "content": " . The weighted average of similarity coefficients represents how the impact of a text on a specific industry is related to"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "figure-175d5b70-f8b1-4f95-b735-0566ea2299ce",
+          "type": "figure",
+          "src": "/uploads/images/927eb763-b954-4083-b91c-fd6c9e7860d8/figure-175d5b70-f8b1-4f95-b735-0566ea2299ce.jpg",
+          "caption": {
+            "en": [
+              {
+                "type": "text",
+                "content": "The Transformation Relationships."
+              }
+            ],
+            "zh": []
+          },
+          "uploadedFilename": "figure-175d5b70-f8b1-4f95-b735-0566ea2299ce.jpg"
+        },
+        {
+          "id": "paragraph-7b79c02c-67b1-4724-99d7-91c277ff2316",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "its similarity  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "c_{j,n}"
+              },
+              {
+                "type": "text",
+                "content": " . This equation implies that the meso-level sentiment  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\beta, i, k}"
+              },
+              {
+                "type": "text",
+                "content": "  of an arbitrary bond on a given day is the average of the industry sentiment  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\beta, m, k}"
+              },
+              {
+                "type": "text",
+                "content": "  relevant to that day. Each industry sentiment  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\beta, n, j, k}"
+              },
+              {
+                "type": "text",
+                "content": "  is computed as a weighted average of the topic sentiments  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\beta, n, j, k}"
+              },
+              {
+                "type": "text",
+                "content": " , where the similarity score  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "c_{j,n}"
+              },
+              {
+                "type": "text",
+                "content": "  controls the influence strength of different industries on the bond. The term  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "g_{m,n}"
+              },
+              {
+                "type": "text",
+                "content": "  from the Knowledge Graph  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{G}"
+              },
+              {
+                "type": "text",
+                "content": "  enables the association between topics and industries. After the procedure of meso-level analysis, we could get the industry-specific sentiment matrix  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "S_{\\beta}"
+              },
+              {
+                "type": "text",
+                "content": " :"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "math-05fc787e-8ca9-4327-b280-424dddd6ec88",
+          "type": "math",
+          "latex": "\\mathcal {S} _ {\\beta} = \\left( \\begin{array}{c c c c} s _ {\\beta , 1, 1} & s _ {\\beta , 1, 2} & \\dots & s _ {\\beta , 1, K} \\\\ s _ {\\beta , 2, 1} & s _ {\\beta , 2, 2} & \\dots & s _ {\\beta , 2, K} \\\\ \\vdots & \\vdots & \\ddots & \\vdots \\\\ s _ {\\beta , M, 1} & s _ {\\beta , M, 2} & \\dots & s _ {\\beta , M, K} \\end{array} \\right) _ {M \\times K}, \\tag {7}"
+        },
+        {
+          "id": "paragraph-c1845d9e-e4ca-4e96-bba3-c96341e8363f",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "where  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "M"
+              },
+              {
+                "type": "text",
+                "content": "  is the total number of industries, and  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "K"
+              },
+              {
+                "type": "text",
+                "content": "  is the total number of days in the time series. To avoid sentiment extremes caused by excessive text volume in certain industries on a given day, we apply full-sample z-score standardization to each entry in  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{S}_{\\beta}"
+              },
+              {
+                "type": "text",
+                "content": " , in order to reduce the absolute differences among industry sentiment  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\beta,m,k}"
+              },
+              {
+                "type": "text",
+                "content": " . Since industry sentiment  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\beta,m,k}"
+              },
+              {
+                "type": "text",
+                "content": "  is a weighted sum of topic sentiment, its range may exceed  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "[-1,1]"
+              },
+              {
+                "type": "text",
+                "content": " . As the meso-level sentiment  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\beta,i,k}"
+              },
+              {
+                "type": "text",
+                "content": "  is the average of multiple industry sentiment values, its range may also exceed  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "[-1,1]"
+              },
+              {
+                "type": "text",
+                "content": " ."
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        }
+      ],
+      "subsections": []
+    },
+    {
+      "id": "section-52c9394f-8180-4d3e-a8d3-1edf9f3a36f7",
+      "title": {
+        "en": "Aggregation and Duration Function in Task 2",
+        "zh": ""
+      },
+      "content": [
+        {
+          "id": "paragraph-a78a1c44-6f92-40d2-8019-d27b5f09b117",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "By querying the industry of the bond, we can use Eq. 6 and  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "S_{\\beta}"
+              },
+              {
+                "type": "text",
+                "content": "  to map  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\beta,i,k}"
+              },
+              {
+                "type": "text",
+                "content": "  and derive the daily sentiment  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\hat{s}_{i,k}"
+              },
+              {
+                "type": "text",
+                "content": "  for each bond on a given day:"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "math-4426a0c7-b78b-4049-b6f4-6631743ce88c",
+          "type": "math",
+          "latex": "\\hat {s} _ {i, k} = s _ {\\alpha , i, k} + s _ {\\beta , i, k}. \\tag {8}"
+        },
+        {
+          "id": "paragraph-22ddb66a-2991-43f6-956e-ea960ae5b104",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "where  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\alpha, i, k}"
+              },
+              {
+                "type": "text",
+                "content": "  is the micro-level sentiment of bond  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "i"
+              },
+              {
+                "type": "text",
+                "content": "  calculated from ABSA, and  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s_{\\beta, i, k}"
+              },
+              {
+                "type": "text",
+                "content": "  is the meso-level sentiment of bond  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "i"
+              },
+              {
+                "type": "text",
+                "content": "  calculated from SLSA. We directly add them together based on the assumption in the CAPM model [31] that systematic risk (industry-specific) and unsystematic risk (firm-specific) are independent and additive. Moreover, we standardize meso-level component to ensure they are on a comparable scale. We assume that the additive formulation can more comprehensively assess and reflect market expectations. In Section IV-D, we also design experiments to demonstrate that the additive strategy yields better performance for BDRF compared to treating them as separate variables. Finally, we get the sentiment time series of each bond:"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "math-befdddf1-cf2a-432f-a04b-543f2976e0af",
+          "type": "math",
+          "latex": "\\left\\{\\hat {s} _ {i, k} \\right\\} _ {k = 1} ^ {K} = \\left\\{\\hat {s} _ {i, 1}, \\hat {s} _ {i, 2}, \\dots , \\hat {s} _ {i, K} \\right\\}, \\tag {9}"
+        },
+        {
+          "id": "paragraph-0346bced-5567-49d4-bde5-46c7257ac24e",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "Algorithm 3: BDRF Modeling Input: the length  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "T"
+              },
+              {
+                "type": "text",
+                "content": "  of rolling window, bonds features dataset  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{D}_3"
+              },
+              {
+                "type": "text",
+                "content": " , BDRF model  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "f_{4}(\\cdot)"
+              },
+              {
+                "type": "text",
+                "content": " Output: forecasted credit spread sequence  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\{\\hat{\\mathbf{y}}_i\\}_{i=1}^N"
+              },
+              {
+                "type": "text",
+                "content": " / "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\star \\mathbf{X}_i \\cup \\mathbf{y}_i = \\widetilde{\\mathbf{X}}_i, \\mathbf{X}_i \\in \\mathbb{R}^d, \\mathbf{y}_i \\in \\mathbb{R}, \\widetilde{\\mathbf{X}}_i \\in \\mathbb{R}^{d+1}"
+              },
+              {
+                "type": "text",
+                "content": " \\*/  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\star \\{\\widetilde{\\mathbf{X}}_i\\}_{i=1}^N = \\mathcal{D}_3"
+              },
+              {
+                "type": "text",
+                "content": " \\*/ foreach bond  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\widetilde{\\mathbf{X}}_i \\in \\mathcal{D}_3"
+              },
+              {
+                "type": "text",
+                "content": "  do foreach window  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\widetilde{\\mathbf{X}}_{i,t} \\in \\widetilde{\\mathbf{X}}_i"
+              },
+              {
+                "type": "text",
+                "content": "  do // each point  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "t \\in \\{1,2,\\dots,N-T-1\\}"
+              },
+              {
+                "type": "text",
+                "content": " // window time step  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "1"
+              },
+              {
+                "type": "text",
+                "content": " "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\hat{y}_{i,t+q} = f_4(\\widetilde{\\mathbf{X}}_{i,t})"
+              },
+              {
+                "type": "text",
+                "content": " //  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "q"
+              },
+              {
+                "type": "text",
+                "content": "  is the q-th day after the window, eg. 1 or 2.\nend  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\hat{\\mathbf{y}}_i = \\{\\hat{y}_{i,t+q}\\}_{t=1}^{N-T-1}"
+              },
+              {
+                "type": "text",
+                "content": " ;\nend return forecasted credit spread sequence  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\{\\hat{\\mathbf{y}}_i\\}_{i=1}^N"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "figure-3592a25b-56e7-4045-a160-b30e1d54d043",
+          "type": "figure",
+          "src": "/uploads/images/927eb763-b954-4083-b91c-fd6c9e7860d8/figure-3592a25b-56e7-4045-a160-b30e1d54d043.jpg",
+          "caption": {
+            "en": [
+              {
+                "type": "text",
+                "content": "Visualization of Rolling Window."
+              }
+            ],
+            "zh": []
+          },
+          "uploadedFilename": "figure-3592a25b-56e7-4045-a160-b30e1d54d043.jpg"
+        },
+        {
+          "id": "paragraph-6570b781-fe62-4c76-a74d-3618ffe3a0ca",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "when  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "k = K"
+              },
+              {
+                "type": "text",
+                "content": "  is the current time, it integrates historical data for real-time inference, and when  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "k = K"
+              },
+              {
+                "type": "text",
+                "content": "  is a past date, it backtests. On days with fewer texts, a bond's sentiment is driven by its industry's sentiment, indicating lower market attention and a greater reliance on industry factors.\nHowever, not every bond or industry has daily text coverage, resulting in sparse time series with many neutral zeros. Text impacts persist beyond the publication day [32]. To address it, we design a duration function  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "h(\\cdot)"
+              },
+              {
+                "type": "text",
+                "content": "  to interpolate  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\{\\hat{s}_{i,k}\\}_{k=1}^{K}"
+              },
+              {
+                "type": "text",
+                "content": " , smoothing sequences and capturing lasting text effects:"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "math-e8c112da-a39f-4030-a371-544707833a96",
+          "type": "math",
+          "latex": "\\left\\{s _ {i, k} \\right\\} _ {k = 1} ^ {K} = h \\left(\\left\\{\\hat {s} _ {i, k} \\right\\} _ {k = 1} ^ {K}\\right), \\tag {10}"
+        },
+        {
+          "id": "paragraph-c566d72d-2c55-4c07-b1c8-51189564dc24",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "where we choose wavelet smoothing as the duration function  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "h(\\cdot)"
+              },
+              {
+                "type": "text",
+                "content": " , which is widely used in time series analysis and has been proven effective in noise reduction, missing data imputation, and capturing data trends [33].\nNotably, sentiment  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s"
+              },
+              {
+                "type": "text",
+                "content": "  is initially continuous. In ABSA and SLSA, for convenience, it is converted into a polarity classification task. After summation and  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "h(\\cdot)"
+              },
+              {
+                "type": "text",
+                "content": " , the resulting values do not correspond to extreme points in most cases, and they may exceed the value range  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "[-1, 1]"
+              },
+              {
+                "type": "text",
+                "content": "  of individual texts."
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        }
+      ],
+      "subsections": []
+    },
+    {
+      "id": "section-19d00d0e-ba13-4c41-a6b4-79c297c70104",
+      "title": {
+        "en": "Bond Default Risk Forecasting Modeling in Task 3",
+        "zh": ""
+      },
+      "content": [
+        {
+          "id": "paragraph-d9e52e01-2ee6-4a5e-8444-0db42578c828",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "The dataset used for the BDRF subtask is  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{D}_3"
+              },
+              {
+                "type": "text",
+                "content": " , which contains features such as the debt ratio of bond-issuing firms. We take credit spread as the proxy dependent variable for default risk [34]:"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "math-a73511fe-26dc-42b1-8518-a59e5f597361",
+          "type": "math",
+          "latex": "C r e d i t S p r e a d = B o n d Y i e l d - R i s k - f r e e R a t e, \\tag {11}"
+        },
+        {
+          "id": "paragraph-7cb3e06c-b449-44cd-a179-3d31cbdaf023",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "where if the credit spread narrows, it indicates that market investors perceive a lower default risk for the bond issuer, implying an improvement in credit quality. Our BDRF modeling process adopts a rolling window mechanism, which is shown in Algorithm 3.\nIn Algorithm 3,  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathbf{X}_i"
+              },
+              {
+                "type": "text",
+                "content": "  is the independent variable set including sentiment  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "s"
+              },
+              {
+                "type": "text",
+                "content": " ,  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathbf{y}_i"
+              },
+              {
+                "type": "text",
+                "content": "  is the credit spread,  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "i"
+              },
+              {
+                "type": "text",
+                "content": "  means it is the tabular data of bond  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "i"
+              },
+              {
+                "type": "text",
+                "content": " ,  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "N"
+              },
+              {
+                "type": "text",
+                "content": "  is the total number of bonds in  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{D}_3"
+              },
+              {
+                "type": "text",
+                "content": " . The visual process of the rolling window is shown in Fig. 6. We employ a five-layer Transformer encoder to encode the timeseries data, feeding the final hidden state into an MLP to regress  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathbf{y}_i"
+              },
+              {
+                "type": "text",
+                "content": " , taking  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathbf{X}_i"
+              },
+              {
+                "type": "text",
+                "content": "  as the input. To assess our model's robustness, we forecast the credit spread for the  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "q"
+              },
+              {
+                "type": "text",
+                "content": " -th day after the observation window."
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        }
+      ],
+      "subsections": []
+    },
+    {
+      "id": "section-c856673b-e1cf-4079-aad6-0bfcb62ad38d",
+      "title": {
+        "en": "EXPERIMENTS",
+        "zh": ""
+      },
+      "content": [],
+      "subsections": []
+    },
+    {
+      "id": "section-fc517893-6e16-476b-b22c-1eb85310a83c",
+      "title": {
+        "en": "Setting",
+        "zh": ""
+      },
+      "content": [
+        {
+          "id": "ordered-list-99b1afc5-ee64-4646-aad4-8029fe56bbc9",
+          "type": "ordered-list",
+          "items": [
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Model Selection: The sketch of the models and their baselines, along with the experimental setup, is as follows:"
+                  }
+                ],
+                "zh": []
+              }
+            },
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "For ABSA BERT  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "f_{1}"
+                  },
+                  {
+                    "type": "text",
+                    "content": " , we used BERT-base-Chinese and compared different global feature extraction methods (see Section. IV-B)."
+                  }
+                ],
+                "zh": []
+              }
+            },
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "For GPT Agent  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "f_{2}"
+                  },
+                  {
+                    "type": "text",
+                    "content": " , we took Qwen2.5-3B-Instruct [35] as the foundation model and compared it with others under the same prompt settings (see Section. IV-C)."
+                  }
+                ],
+                "zh": []
+              }
+            },
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "For Embedding Model  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "f_{3}"
+                  },
+                  {
+                    "type": "text",
+                    "content": " , we used bge-large-zh-v1.5 [36] to encode texts."
+                  }
+                ],
+                "zh": []
+              }
+            },
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "For BDRF Model  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "f_{4}"
+                  },
+                  {
+                    "type": "text",
+                    "content": " , we applied a five-layer Transformer encoder (see Section. IV-D)."
+                  }
+                ],
+                "zh": []
+              }
+            },
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Data Standardization: The order of magnitude of each feature column in  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "\\mathcal{D}_3"
+                  },
+                  {
+                    "type": "text",
+                    "content": "  is inconsistent, thus we apply z-score standardization to each feature column to accelerate the convergence for BDRF modeling."
+                  }
+                ],
+                "zh": []
+              }
+            },
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Hyperparameters: This work is implemented by PyTorch on an NVIDIA RTX A5000:"
+                  }
+                ],
+                "zh": []
+              }
+            },
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "For ABSA BERT followed by an MLP, we used MSE as the criterion, with Adam optimizer (lr = 1e-4, weight decay for BERT = 1e-5 and weight decay for MLP = 1e-7 respectively). Train for 50 epochs. During inference, we take the polarity with the highest probability among the three polarities as the output."
+                  }
+                ],
+                "zh": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "math-fc9157b3-f865-4fcc-ab71-157568a66fc1",
+          "type": "math",
+          "latex": "M S E \\left(\\mathbf {p} _ {s}, \\hat {\\mathbf {p}} _ {s}\\right) = \\frac {1}{U} \\sum_ {u = 1} ^ {U} \\left(\\mathbf {p} _ {s} - \\hat {\\mathbf {p}} _ {s}\\right) ^ {2}, \\tag {12}"
+        },
+        {
+          "id": "paragraph-9db0d310-a205-42dc-9333-f8d5729731d1",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "where  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "U"
+              },
+              {
+                "type": "text",
+                "content": "  is the number of texts in  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{D}_1"
+              },
+              {
+                "type": "text",
+                "content": " ,  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathbf{p}_s"
+              },
+              {
+                "type": "text",
+                "content": "  is a three-dimensional vector indicating three polarities."
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "unordered-list-f4299184-47fc-4601-b54b-0d00e7459a07",
+          "type": "unordered-list",
+          "items": [
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "For the BDRF model, each hidden layer dimension of the Transformer encoder and the length  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "T"
+                  },
+                  {
+                    "type": "text",
+                    "content": "  of rolling window were set to 64 and 21, respectively. We used RMSE as the criterion, with RMSprop optimizer (lr = 1e-4, weight decay = 1e-7, momentum = 0.9). Train for 50 epochs."
+                  }
+                ],
+                "zh": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "math-bb613d18-bb64-4ab7-b437-888100ed0acd",
+          "type": "math",
+          "latex": "R M S E \\left(\\mathbf {y} _ {i}, \\hat {\\mathbf {y}} _ {i}\\right) = \\sqrt {\\frac {1}{N _ {t r a i n}} \\sum_ {i = 1} ^ {N _ {t r a i n}} \\left(\\mathbf {y} _ {i} - \\hat {\\mathbf {y}} _ {i}\\right) ^ {2}} \\quad , \\tag {13}"
+        },
+        {
+          "id": "paragraph-ca544f10-a8bc-4dc3-a37a-f6608e671fd9",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "where  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "N_{train}"
+              },
+              {
+                "type": "text",
+                "content": "  is the total number of bonds in  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{D}_3"
+              },
+              {
+                "type": "text",
+                "content": "  trainset,  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathbf{y}_i"
+              },
+              {
+                "type": "text",
+                "content": "  is the credit spread of bond  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "i"
+              },
+              {
+                "type": "text",
+                "content": " ."
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "unordered-list-f1a8dab3-29e4-44fc-9d40-321c49c0f54f",
+          "type": "unordered-list",
+          "items": [
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "We chose the Daubechies 4 wavelet as the basis function for  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "h(\\cdot)"
+                  },
+                  {
+                    "type": "text",
+                    "content": " , with the level set to 6. Comparative results for the hyperparameters are in Section IV-D."
+                  }
+                ],
+                "zh": []
+              }
+            },
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Metrics: The metrics are mainly divided into two categories: one measures the sentiment output of  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "f_{1}"
+                  },
+                  {
+                    "type": "text",
+                    "content": "  and  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "f_{2}"
+                  },
+                  {
+                    "type": "text",
+                    "content": " , and the other measures the credit spread output of  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "f_{4}"
+                  },
+                  {
+                    "type": "text",
+                    "content": " :"
+                  }
+                ],
+                "zh": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "math-7076e832-a9fe-418a-b3e6-5f5573a72420",
+          "type": "math",
+          "latex": "P r e c i s i o n = \\frac {T P _ {s}}{T P _ {s} + F P _ {s}} \\quad , \\tag {14}"
+        },
+        {
+          "id": "paragraph-17875f2d-7208-4f6c-ae7a-5d68da9131dd",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "where  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "TP_{s}"
+              },
+              {
+                "type": "text",
+                "content": "  and  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\text{FP}_{s}"
+              },
+              {
+                "type": "text",
+                "content": "  are the numbers of correct and incorrect polarities in the  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{D}_1"
+              },
+              {
+                "type": "text",
+                "content": "  testset, respectively."
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "math-fdc03610-623e-498e-8dec-36d47e107c21",
+          "type": "math",
+          "latex": "M A E \\left(\\mathbf {y} _ {i}, \\hat {\\mathbf {y}} _ {i}\\right) = \\frac {1}{N _ {t e s t}} \\sum_ {i = 1} ^ {N _ {t e s t}} \\left| \\mathbf {y} _ {i} - \\hat {\\mathbf {y}} _ {i} \\right|, \\tag {15}"
+        },
+        {
+          "id": "math-19aa3ee7-9c61-46e0-a684-2d7d0b344cc6",
+          "type": "math",
+          "latex": "M A P E \\left(\\mathbf {y} _ {i}, \\hat {\\mathbf {y}} _ {i}\\right) = \\frac {1}{N _ {t e s t}} \\sum_ {i = 1} ^ {N _ {t e s t}} \\left| \\frac {\\mathbf {y} _ {i} - \\hat {\\mathbf {y}} _ {i}}{\\mathbf {y} _ {i}} \\right|, \\tag {16}"
+        },
+        {
+          "id": "paragraph-d45c2171-b3a7-4010-8c4e-cc12bf0cab7c",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "where  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "N_{test}"
+              },
+              {
+                "type": "text",
+                "content": "  is the total number of bonds in  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{D}_3"
+              },
+              {
+                "type": "text",
+                "content": "  testset,  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathbf{y}_i"
+              },
+              {
+                "type": "text",
+                "content": "  is the credit spread of bond  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "i"
+              },
+              {
+                "type": "text",
+                "content": " ."
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        }
+      ],
+      "subsections": []
+    },
+    {
+      "id": "section-cf7de220-a44e-4325-9ba8-8be9e47d5c0f",
+      "title": {
+        "en": "Results on Firm-Specific Sentiment Analysis",
+        "zh": ""
+      },
+      "content": [
+        {
+          "id": "paragraph-ecf82b7f-6a29-4786-9a4f-8ec73c3f9c4d",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "TABLE I: Pooling Comparison Results.\n<table><tr><td>Method</td><td>Precision (%)</td></tr><tr><td>Mean Pooling</td><td>86.19</td></tr><tr><td>Max Pooling</td><td>87.59</td></tr><tr><td>Mean-Max Pooling</td><td>88.27</td></tr></table>\nIn this experiment, in addition to using the mean-max pooling method mentioned in Algorithm. 1 to extract global features, we also attempted to directly concatenate the results of mean pooling and max pooling with the [CLS] embedding as a baseline for comparison. The results are shown in Table. I, which shows that among these three methods, the mean-max pooling approach we used achieves the best performance."
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        }
+      ],
+      "subsections": []
+    },
+    {
+      "id": "section-ea79ea39-5943-489b-a4a1-fed697e77adb",
+      "title": {
+        "en": "Results on Industry-Specific Sentiment Analysis",
+        "zh": ""
+      },
+      "content": [
+        {
+          "id": "paragraph-cdddaaf3-acd3-49db-8ba2-b04ecf248fc1",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "TABLE II: Foundation Model Comparison Results.\n<table><tr><td>Foundation Model</td><td>Precision (%)</td></tr><tr><td>DeepSeek-R1-Distill-Qwen-1.5B [37]</td><td>51.8</td></tr><tr><td>Llama-3.2-3B-Instruct8</td><td>55.4</td></tr><tr><td>Qwen2.5-3B-Instruct [35]</td><td>75.0</td></tr></table>\nIn this experiment, we evaluated three foundation models under the same prompt settings. Since  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{D}_{2,\\beta}"
+              },
+              {
+                "type": "text",
+                "content": "  has 827,453 entries, we randomly sampled five subsets of 100 entries each. The models independently generated sentiment outputs for these subsets, and then our financial experts assessed their precision, the average precision across the five subsets was taken as the model's performance. Table. II shows that Qwen2.5-3B-Instruct we used exhibited the most stable performance."
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "figure-961cdd66-8f01-4762-a664-94f603eeb511",
+          "type": "figure",
+          "src": "/uploads/images/927eb763-b954-4083-b91c-fd6c9e7860d8/figure-961cdd66-8f01-4762-a664-94f603eeb511.jpg",
+          "caption": {
+            "en": [],
+            "zh": []
+          },
+          "uploadedFilename": "figure-961cdd66-8f01-4762-a664-94f603eeb511.jpg"
+        },
+        {
+          "id": "figure-28bb1a46-4030-4e28-b396-215a55246e23",
+          "type": "figure",
+          "src": "/uploads/images/927eb763-b954-4083-b91c-fd6c9e7860d8/figure-28bb1a46-4030-4e28-b396-215a55246e23.jpg",
+          "caption": {
+            "en": [],
+            "zh": []
+          },
+          "uploadedFilename": "figure-28bb1a46-4030-4e28-b396-215a55246e23.jpg"
+        },
+        {
+          "id": "figure-20778c6f-d881-4c1b-9d2d-ab39ea5583d1",
+          "type": "figure",
+          "src": "/uploads/images/927eb763-b954-4083-b91c-fd6c9e7860d8/figure-20778c6f-d881-4c1b-9d2d-ab39ea5583d1.jpg",
+          "caption": {
+            "en": [],
+            "zh": []
+          },
+          "uploadedFilename": "figure-20778c6f-d881-4c1b-9d2d-ab39ea5583d1.jpg"
+        },
+        {
+          "id": "figure-a1a0d666-9e8e-4933-88fd-7937406fbfe4",
+          "type": "figure",
+          "src": "/uploads/images/927eb763-b954-4083-b91c-fd6c9e7860d8/figure-a1a0d666-9e8e-4933-88fd-7937406fbfe4.jpg",
+          "caption": {
+            "en": [],
+            "zh": []
+          },
+          "uploadedFilename": "figure-a1a0d666-9e8e-4933-88fd-7937406fbfe4.jpg"
+        },
+        {
+          "id": "figure-0b607763-8816-4728-b0e3-99cc92fe4553",
+          "type": "figure",
+          "src": "/uploads/images/927eb763-b954-4083-b91c-fd6c9e7860d8/figure-0b607763-8816-4728-b0e3-99cc92fe4553.jpg",
+          "caption": {
+            "en": [],
+            "zh": []
+          },
+          "uploadedFilename": "figure-0b607763-8816-4728-b0e3-99cc92fe4553.jpg"
+        },
+        {
+          "id": "figure-e7e56ac4-3529-40ec-985d-fb7d6614c56a",
+          "type": "figure",
+          "src": "/uploads/images/927eb763-b954-4083-b91c-fd6c9e7860d8/figure-e7e56ac4-3529-40ec-985d-fb7d6614c56a.jpg",
+          "caption": {
+            "en": [],
+            "zh": []
+          },
+          "uploadedFilename": "figure-e7e56ac4-3529-40ec-985d-fb7d6614c56a.jpg"
+        },
+        {
+          "id": "figure-3e2ef02d-0b44-4ac4-aabb-9c38caa97214",
+          "type": "figure",
+          "src": "/uploads/images/927eb763-b954-4083-b91c-fd6c9e7860d8/figure-3e2ef02d-0b44-4ac4-aabb-9c38caa97214.jpg",
+          "caption": {
+            "en": [],
+            "zh": []
+          },
+          "uploadedFilename": "figure-3e2ef02d-0b44-4ac4-aabb-9c38caa97214.jpg"
+        },
+        {
+          "id": "figure-e5b72658-ff7e-4591-a47f-f36ba2fb7aa2",
+          "type": "figure",
+          "src": "/uploads/images/927eb763-b954-4083-b91c-fd6c9e7860d8/figure-e5b72658-ff7e-4591-a47f-f36ba2fb7aa2.jpg",
+          "caption": {
+            "en": [
+              {
+                "type": "text",
+                "content": "Sentiment Heatmap for 40 Industries (2013-2023). Values exceeding -1 and 1 were truncated for display. The marked period exhibits a significant sentiment shift vis-à-vis its preceding period, aligning with the corresponding social event."
+              }
+            ],
+            "zh": []
+          },
+          "uploadedFilename": "figure-e5b72658-ff7e-4591-a47f-f36ba2fb7aa2.jpg"
+        },
+        {
+          "id": "paragraph-f051f925-ca29-467f-a8c4-7d3993ebba42",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "We visualized the industry-specific sentiment matrix  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "S_{\\beta}"
+              },
+              {
+                "type": "text",
+                "content": "  obtained using Qwen2.5-3B-Instruct and Algorithm 2, as shown in Fig. 7. Trivially, we have the following observations:"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "ordered-list-369c3473-a73c-4940-9653-0bed29d32aae",
+          "type": "ordered-list",
+          "items": [
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "All industries exhibit similar sentiment patterns, with changes following the same overall trend, i.e., collective optimism or pessimism. It endorses the financial contagion [38], which illustrates how economic shocks or significant events in one market can lead to simultaneous reactions spreading across multiple markets."
+                  }
+                ],
+                "zh": []
+              }
+            },
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "At certain time points, the sentiment of each industry undergoes collective shifts, resembling the peer effect [39]. These events act as a \"curtain\" for most industries, immediately affecting industry-wide sentiment and persisting for a period of time. In Fig. 7, we highlighted several representative time slots and found that they correspond to influential events in Chinese society. For example, the highlighted ① refers to the mid-2015 Chinese Stock Market Turbulence, during which a large number of retail investors, affected by short-selling and leverage mechanisms, began to sell off stocks massively. As a result, the bond market was severely impacted, and sentiment across all industries remained depressed for several months. ⑥ corresponds to the end of 2022, when the Chinese government abandoned the \"Zero-COVID Policy.\" The economy, previously constrained by the pandemic, began to recover, leading to a shift in"
+                  }
+                ],
+                "zh": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "paragraph-909201bb-43d9-40bc-b1a6-bace8971992f",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "sentiment from bearish to bullish across most industries, whereas industries such as Television and Broadcasting, Gaming, Advertising and Marketing, Digital Media, Social Media, and Publishing remained in a depressed state compared to others, as people had fewer opportunities to socialize through these media while staying at home.\nTo analyze whether the industry sentiment time series exhibits seasonal trends, we selected the industry Automobile and performed decomposition using Seasonal Decomposition of Time Series by Loess (STL) [40]. The visualization is shown in Fig. 8. The third subplot, \"Season,\" indicates that industry sentiment does not exhibit significant seasonality. The fourth subplot, \"Resid,\" shows that the noise distribution in the series remains relatively stable, with few outliers. The marked bearish period corresponds to the social event: In early 2018, China announced an early subsidy phase-out for new energy vehicles, starting the industry elimination competition."
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        }
+      ],
+      "subsections": []
+    },
+    {
+      "id": "section-ee20cdc7-c37d-44f2-a673-1794ab3c40d9",
+      "title": {
+        "en": "Empirical Analysis on BDRF Modeling",
+        "zh": ""
+      },
+      "content": [
+        {
+          "id": "paragraph-59e4d128-8291-4501-8c8e-9423ce57cde9",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "In Section IV-C, we presented the qualitative association between industry sentiment and risk events. To quantitatively analyze the relationship between the composite sentiment of each individual bond and its downstream task performance, we selected bond default risk forecasting (BDRF) as the very task. The following experiments quantify the effect of incorporating our extracted text sentiment on credit spread forecasting."
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "figure-9d06395d-3e3d-4925-a92d-bacb72d71c4a",
+          "type": "figure",
+          "src": "/uploads/images/927eb763-b954-4083-b91c-fd6c9e7860d8/figure-9d06395d-3e3d-4925-a92d-bacb72d71c4a.jpg",
+          "caption": {
+            "en": [
+              {
+                "type": "text",
+                "content": "Industry Sentiment Time Series Decomposition of Automobile (2013-2023). From top to bottom, the four subplots represent the origin, trend, seasonality, and residuals."
+              }
+            ],
+            "zh": []
+          },
+          "uploadedFilename": "figure-9d06395d-3e3d-4925-a92d-bacb72d71c4a.jpg"
+        },
+        {
+          "id": "paragraph-93187eb8-8dbc-4291-b42b-f032c4f9114c",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "TABLE III: Comparison Results on Forecasting Target  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "q"
+              },
+              {
+                "type": "text",
+                "content": "\n<table><tr><td>Forecasting Target t + q</td><td>Sentiment</td><td>MAE (e-5)</td><td>MAPE (e-3)</td><td>p</td><td>ΔMAE (%↓)</td><td>ΔMAPE (%↓)</td></tr><tr><td>t + 1</td><td></td><td>11.2366</td><td>9.4581</td><td>n/a</td><td>n/a</td><td>n/a</td></tr><tr><td>t + 1</td><td>✓</td><td>11.3680</td><td>8.3686</td><td>0.0812</td><td>-1.1693</td><td>11.5194</td></tr><tr><td>t + 2</td><td></td><td>8.9683</td><td>8.0033</td><td>n/a</td><td>n/a</td><td>n/a</td></tr><tr><td>t + 2</td><td>✓</td><td>8.6765</td><td>7.1257</td><td>0.0373</td><td>3.2539</td><td>10.9658</td></tr><tr><td>t + 3</td><td></td><td>14.1859</td><td>12.4256</td><td>n/a</td><td>n/a</td><td>n/a</td></tr><tr><td>t + 3</td><td>✓</td><td>14.2665</td><td>10.6770</td><td>0.0405</td><td>-0.5682</td><td>14.0730</td></tr><tr><td>t + 4</td><td></td><td>16.6853</td><td>10.4440</td><td>n/a</td><td>n/a</td><td>n/a</td></tr><tr><td>t + 4</td><td>✓</td><td>16.5656</td><td>8.0975</td><td>0.0483</td><td>0.7170</td><td>22.4673</td></tr></table>"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "unordered-list-de59a7fc-d515-45bc-906d-7d6c25356b31",
+          "type": "unordered-list",
+          "items": [
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "inline-math",
+                    "latex": "\\checkmark"
+                  },
+                  {
+                    "type": "text",
+                    "content": "  represents adding the composite sentiment into the feature set."
+                  }
+                ],
+                "zh": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "paragraph-df5e0b1f-7254-4908-a291-883f641f9d12",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "First, to demonstrate how credit spread forecasting performance changes under different forecasting targets  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "q"
+              },
+              {
+                "type": "text",
+                "content": "  after incorporating our extracted text sentiment, we conducted comparative experiments. The results are shown in Table III. Notably, we compute the  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "p"
+              },
+              {
+                "type": "text",
+                "content": " -value using the non-parametric Permutation Test [41], which compares credit spread forecasts  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\hat{\\mathbf{y}}_i"
+              },
+              {
+                "type": "text",
+                "content": "  from models with and without sentiment, and does not require assumptions about the underlying data distribution, as both the BDRF model  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "f_{4}"
+              },
+              {
+                "type": "text",
+                "content": "  and the sentiment series are based on deep learning. In addition,  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\Delta \\mathrm{MAE}"
+              },
+              {
+                "type": "text",
+                "content": "  and  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\Delta \\mathrm{MAPE}"
+              },
+              {
+                "type": "text",
+                "content": "  in the table denote the percentage change in MAE and MAPE with sentiment, computed by subtracting the corresponding metric of the with-sentiment group from that of the without-sentiment group. That is, a positive value indicates an increase, while a negative value indicates a decrease. We found that under statistical significance, the model exhibits varying degrees of improvement in forecasting performance across different forecasting targets  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "q"
+              },
+              {
+                "type": "text",
+                "content": " . When the forecasting target is  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "q = 2"
+              },
+              {
+                "type": "text",
+                "content": "  (i.e., the second trading day  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "t + 2"
+              },
+              {
+                "type": "text",
+                "content": "  after the current day), the improvement is most robust, with  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "3.2539\\%"
+              },
+              {
+                "type": "text",
+                "content": "  in  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\Delta \\mathrm{MAE}"
+              },
+              {
+                "type": "text",
+                "content": "  and  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "10.9658\\%"
+              },
+              {
+                "type": "text",
+                "content": "  in  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\Delta \\mathrm{MAPE}"
+              },
+              {
+                "type": "text",
+                "content": " . We adopt the model under this setting for subsequent analysis (denoted as  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "f_4^{*}"
+              },
+              {
+                "type": "text",
+                "content": " ).\nSecond, to examine the collinearity among features in the BDRF model  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "f_{4}"
+              },
+              {
+                "type": "text",
+                "content": " , as well as their contributions during the forecasting process, we conducted a feature analysis. The complete descriptions of all features can be found in Appendix. B. We plotted a correlation matrix among the features, as shown in"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "figure-93644fd6-9ffe-4359-b7de-7a7014ce3f03",
+          "type": "figure",
+          "src": "/uploads/images/927eb763-b954-4083-b91c-fd6c9e7860d8/figure-93644fd6-9ffe-4359-b7de-7a7014ce3f03.jpg",
+          "caption": {
+            "en": [
+              {
+                "type": "text",
+                "content": "The Correlation Matrix of Features."
+              }
+            ],
+            "zh": []
+          },
+          "uploadedFilename": "figure-93644fd6-9ffe-4359-b7de-7a7014ce3f03.jpg"
+        },
+        {
+          "id": "paragraph-451aec97-c9e4-4938-88b6-a81839e5e533",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "TABLE IV: Ablation Results.\n<table><tr><td>Micro-Level Sentiment</td><td>Meso-Level Sentiment</td><td>Duration Function</td><td>MAE (e-5)</td><td>MAPE (e-3)</td><td>p</td><td>ΔMAE (%)↓</td><td>ΔMAPE (%)↓</td></tr><tr><td></td><td></td><td></td><td>8.9683</td><td>8.0033</td><td>n/a</td><td>n/a</td><td>n/a</td></tr><tr><td>✓</td><td></td><td></td><td>8.7890</td><td>10.0594</td><td>0.0573</td><td>1.9991</td><td>-25.6900</td></tr><tr><td></td><td>✓</td><td></td><td>8.7621</td><td>8.0367</td><td>0.0472</td><td>2.2989</td><td>-0.4170</td></tr><tr><td>✓</td><td>✓</td><td></td><td>15.567</td><td>43.479</td><td>≈ 0.0</td><td>-73.579</td><td>-443.258</td></tr><tr><td>*</td><td>*</td><td></td><td>8.9489</td><td>8.0205</td><td>0.1013</td><td>0.2159</td><td>-0.2148</td></tr><tr><td>✓</td><td>✓</td><td>✓</td><td>8.6765</td><td>7.1257</td><td>0.0373</td><td>3.2539</td><td>10.9658</td></tr></table>"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "unordered-list-f2de2712-d8d8-4b76-9fb8-136617163171",
+          "type": "unordered-list",
+          "items": [
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Blue numbers indicate significant results ( "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "p"
+                  },
+                  {
+                    "type": "text",
+                    "content": " -value  "
+                  },
+                  {
+                    "type": "inline-math",
+                    "latex": "< 0.05"
+                  },
+                  {
+                    "type": "text",
+                    "content": " ) based on the non-parametric Permutation Test [41]."
+                  }
+                ],
+                "zh": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "paragraph-4c88325b-94fa-4ed2-93e6-5d001c55d603",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "Fig. 9. It can be observed that the composite sentiment extracted by us does not exhibit significant collinearity with other features. Strong collinearity exists within the Firm Financial and Operational Indicators listed in Table. VII among the remaining independent variables. Within the Macroeconomic and Financial Indicators, collinearity is present among Shibor, Manufacturing PMI, Macroeconomic Climate Leading Index, GDP, and AFRE. We presented the feature attribution of  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "f_4^{*}"
+              },
+              {
+                "type": "text",
+                "content": "  in Table. III, where the feature importance is calculated by randomly permuting the positions of independent variable features. The complete results are provided in Appendix. C. We observe that in the forecasting of short-term credit spread, Macroeconomic and Financial Indicators contribute the most, exceeding the contributions of other market and firm-level indicators. The composite sentiment we extracted ranks 17th among the 46 features, comparable to some highly contributing firm-level indicators such as Current Ratio.\nThird, to evaluate the effectiveness of the three components in Task 2 under partial integration, i.e., micro-level firm-specific sentiment, meso-level industry-specific sentiment, and the duration function, we conducted an ablation study. We selected a representative supplier firm in the industry Automobile, Contemporary Amperex Technology Co., Limited (CATL), to visualize each component. The results are shown in Fig. 10, from which we can draw two observations as follows:"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "ordered-list-719e43c0-1acf-41a2-8940-57dd2035b31b",
+          "type": "ordered-list",
+          "items": [
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Each individual component exhibits significant fluctu-"
+                  }
+                ],
+                "zh": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "figure-56b475cb-e979-4a66-9b44-5cfa06bdfae3",
+          "type": "figure",
+          "src": "/uploads/images/927eb763-b954-4083-b91c-fd6c9e7860d8/figure-56b475cb-e979-4a66-9b44-5cfa06bdfae3.jpg",
+          "caption": {
+            "en": [
+              {
+                "type": "text",
+                "content": "Component Visualization of CATL. Since industry-specific sentiment is transmitted from topic sentiment via the Knowledge Graph  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\mathcal{G}"
+              },
+              {
+                "type": "text",
+                "content": " , and topic sentiment is aggregated from daily sentiment, if all industries associated with this company exhibit the same polarities on certain days, this can lead to extreme values appearing on those days in the visualization."
+              }
+            ],
+            "zh": []
+          },
+          "uploadedFilename": "figure-56b475cb-e979-4a66-9b44-5cfa06bdfae3.jpg"
+        },
+        {
+          "id": "paragraph-9bb51213-ca72-4bc1-9659-c23606ea085d",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "ations. However, after aggregation and the application of the duration function, the all-inclusive factors curve effectively captures the overall trend of public sentiment."
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "ordered-list-51504f70-65bd-43d2-b626-8f4bfcd79036",
+          "type": "ordered-list",
+          "items": [
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "CATL and its associated industry Automobile, both exhibit similar bearish trends during the marked period. However, on certain days, the sentiment of CATL is even more pessimistic than that of the Automobile industry. This indicates that during these periods, the company is not only influenced by the transmission of industry-wide bearish sentiment, but also directly targeted by a substantial number of bearish texts in the market. Since we aggregate firm-specific and industry-specific sentiment, the composite sentiment takes both effects into account simultaneously."
+                  }
+                ],
+                "zh": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "paragraph-f25a3b77-f4be-4400-800f-f731124cefc7",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "The quantitative results are presented in Table. IV, where the first row shows results without sentiment,  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\checkmark"
+              },
+              {
+                "type": "text",
+                "content": "  indicates included components, and in the fifth row, the two asterisks  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "(^{*})"
+              },
+              {
+                "type": "text",
+                "content": "  mean that micro-level and meso-level sentiment are used as separate features instead of being summed. Our analysis revealed that both micro- and meso-level sentiments exhibit significant individual biases when used in isolation. The microlevel sentiment fails to capture systemic industry risks, while the meso-level sentiment overlooks firm-specific vulnerabilities. As shown in Table. IV, using either sentiment component alone actually degrades the performance of the BDRF model  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "f_{4}"
+              },
+              {
+                "type": "text",
+                "content": "  compared to the baseline (first row), demonstrating that partial integration leads to incomplete risk assessment. Most critically, omitting the duration function results in the most severe performance deterioration. As illustrated in Fig. 10, raw sentiment without temporal smoothing show extreme volatility that poorly reflects actual risk dynamics. The wavelet-based duration function effectively addresses this by:"
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "unordered-list-e5972da4-a3b8-4b1f-ae20-015523663a9e",
+          "type": "unordered-list",
+          "items": [
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Accounting for the latency of textual impact."
+                  }
+                ],
+                "zh": []
+              }
+            },
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Modeling the persistence of sentiment effects."
+                  }
+                ],
+                "zh": []
+              }
+            },
+            {
+              "content": {
+                "en": [
+                  {
+                    "type": "text",
+                    "content": "Smoothing out noise while preserving meaningful trends. Only through the complete framework, i.e., aggregating both sentiment levels and applying duration-aware smoothing, do we achieve optimal forecasting accuracy. This integrated approach successfully balances firm-specific and industry-wide"
+                  }
+                ],
+                "zh": []
+              }
+            }
+          ]
+        },
+        {
+          "id": "paragraph-2bcd60dd-c2b6-4446-99c7-f68fc727df8f",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "TABLE V: Comparison Results of Duration Function.\n<table><tr><td>Duration Function</td><td>MAE (e-5)</td><td>MAPE (e-3)</td><td>p</td><td>ΔMAE (%↓)</td><td>ΔMAPE (%↓)</td></tr><tr><td>n/a</td><td>8.9683</td><td>8.0033</td><td>n/a</td><td>n/a</td><td>n/a</td></tr><tr><td>Smoothing Spline (factor set to 16)</td><td>8.7114</td><td>8.0536</td><td>0.0342</td><td>2.8649</td><td>-0.6282</td></tr><tr><td>Daubechies 4 wavelet (level set to 3)</td><td>8.8166</td><td>9.3779</td><td>0.0457</td><td>1.6915</td><td>-17.1753</td></tr><tr><td>Daubechies 4 wavelet (level set to 6, f4*)</td><td>8.6765</td><td>7.1257</td><td>0.0373</td><td>3.2539</td><td>10.9658</td></tr></table>\nrisk factors while respecting the temporal nature of sentiment influence, as evidenced by the stable, representative curve of \"All-inclusive Factors\" in Fig. 10.\nFourth, to validate the rationality of our chosen duration function, we conducted a comparative experiment on different duration functions and the same hyperparameters setting (the forecasting target  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "q = 2"
+              },
+              {
+                "type": "text",
+                "content": " , the length of rolling window  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "T = 21"
+              },
+              {
+                "type": "text",
+                "content": " ), with the results shown in Table. V. The first row shows the results without sentiment, i.e., without applying any duration function. The second row presents the results using an alternative function — Smoothing Spline (with the smoothing factor set to 16). The third row shows the results when the level of the Daubechies 4 wavelet is set to 3. It can be seen that our chosen configuration is reasonable; compared to the other two baselines, our approach yields more robust results under statistically significant  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "p"
+              },
+              {
+                "type": "text",
+                "content": " -values.\nFinally, cause we demonstrated the association between sentiment and risk events from an industry-level view in Fig. 7, to illustrate this association at the firm level, especially regarding changes in composite sentiment preceding bond defaults, we selected two bonds that defaulted in the Chinese bond market and visualized their sentiment trajectories, as shown in Fig. 11. It is evident that both bonds exhibited a significant sentiment shift prior to default. Therefore, beyond the statistically significant quantitative results shown in our Table. III, Fig. 11 suggests that the composite sentiment extracted by our framework can indeed serve as an early warning indicator for the market. For the bond  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "136093.SH"
+              },
+              {
+                "type": "text",
+                "content": "  issued by CEFC China Energy, in March 2018, its chairman Ye was retained by the Chinese government due to economic bribery scandals involving government officials. As the board became unable to function and related public opinion intensified, the company suspended trading of the bond and failed to fulfill its repayment obligations on time. For the bond  "
+              },
+              {
+                "type": "inline-math",
+                "latex": "\\text{031390443.IB}"
+              },
+              {
+                "type": "text",
+                "content": "  issued by Sichuan Coal Industry Group, due to long-standing operational difficulties and structural changes in China's energy sector, creditors sought the reorganization through the local court in May 2015 after the company failed to repay its debts. Subsequently, the bond experienced a prolonged bearish sentiment. Although the situation temporarily improved at the end of 2015 due to a decline in the yield on 10-year government bonds, the company ultimately defaulted under continued financial strain and structural adjustment policies, accompanied by a renewed downturn in sentiment."
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        },
+        {
+          "id": "figure-ace9d5cb-075c-47f7-84c1-f8d56e7908c8",
+          "type": "figure",
+          "src": "/uploads/images/927eb763-b954-4083-b91c-fd6c9e7860d8/figure-ace9d5cb-075c-47f7-84c1-f8d56e7908c8.jpg",
+          "caption": {
+            "en": [],
+            "zh": []
+          },
+          "uploadedFilename": "figure-ace9d5cb-075c-47f7-84c1-f8d56e7908c8.jpg"
+        },
+        {
+          "id": "figure-1b5da2d2-bb17-43a1-8d7d-a3b50c2505c5",
+          "type": "figure",
+          "src": "/uploads/images/927eb763-b954-4083-b91c-fd6c9e7860d8/figure-1b5da2d2-bb17-43a1-8d7d-a3b50c2505c5.jpg",
+          "caption": {
+            "en": [
+              {
+                "type": "text",
+                "content": "Visualization of Composite Sentiment Dynamics of Defaulted Bonds Preceding defaults. The left side of each subplot displays the bond code. \"SH\" indicates the Shanghai Stock Exchange, and \"IB\" indicates the Investment Bank."
+              }
+            ],
+            "zh": []
+          },
+          "uploadedFilename": "figure-1b5da2d2-bb17-43a1-8d7d-a3b50c2505c5.jpg"
+        }
+      ],
+      "subsections": []
+    },
+    {
+      "id": "section-094437ca-bb92-48de-bf7e-46399d8e8a86",
+      "title": {
+        "en": "CONCLUSION",
+        "zh": ""
+      },
+      "content": [
+        {
+          "id": "paragraph-d826871b-d43c-44c2-99f0-1d409cf56e96",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "Benefits. In this work, we independently constructed a multi-source heterogeneous dataset and leveraged PLMs and LLMs to extract firm-specific and industry-specific sentiment from both the micro-level and meso-level perspectives, and aggregated them using wavelet smoothing. Empirical analysis demonstrates that the composite sentiment extracted by our framework significantly improves the forecasting of bond credit spreads of the Chinese bond market. This expands the feature sources for bond default forecasting models and provides a valuable reference for using unstructured text in the study of the financial market.\nLimitations and Future Work. This work focuses solely on the Chinese bond market and selects bond default risk forecasting as the only downstream task. However, this paradigm of sentiment analysis for financial texts can be extended to other asset classes and downstream tasks in the financial market, including equities and derivatives."
+              }
+            ],
+            "zh": []
+          },
+          "align": "left"
+        }
+      ],
+      "subsections": []
+    }
+  ],
+  "references": [
+    {
+      "id": "ref-0030a37e-6b87-484c-8d08-a74969de78f8",
+      "number": 1,
+      "authors": [
+        "F"
+      ],
+      "title": "International recessions,",
+      "publication": "\" American Economic Review",
+      "year": 2018,
+      "pages": "935-984",
+      "volume": "108",
+      "issue": "4"
+    },
+    {
+      "id": "ref-b484b72c-e5b7-4fbb-9686-6c94af33ae12",
+      "number": 2,
+      "authors": [
+        "M"
+      ],
+      "title": "Investor sentiment and the cross-section of stock returns,",
+      "publication": "\" The journal of Finance",
+      "year": 2006,
+      "pages": "1645-1680",
+      "volume": "61",
+      "issue": "4"
+    },
+    {
+      "id": "ref-47102f7e-00ad-44b7-8a6e-011d59032d80",
+      "number": 3,
+      "authors": [
+        "S"
+      ],
+      "title": "News and asset pricing: A high-frequency anatomy of the sdf,",
+      "publication": "\" The Review of Financial Studies",
+      "year": 2024
+    },
+    {
+      "id": "ref-08fbb04e-b6af-4e9c-941d-a962e3467b0c",
+      "number": 4,
+      "authors": [
+        "S"
+      ],
+      "title": "Consoli, L",
+      "publication": "T",
+      "year": 2021,
+      "volume": "118"
+    },
+    {
+      "id": "ref-68be6859-a725-4554-9ae9-ccc4194c7310",
+      "number": 5,
+      "authors": [
+        "K"
+      ],
+      "title": "Financial sentiment analysis: Techniques and applications,",
+      "publication": "\" ACM Computing Surveys",
+      "year": 2024,
+      "pages": "1-42",
+      "volume": "56",
+      "issue": "9"
+    },
+    {
+      "id": "ref-08599e14-fed8-4666-bd4b-3ce0796a99e3",
+      "number": 6,
+      "authors": [
+        "N"
+      ],
+      "title": "Identifying corporate credit risk sentiments from financial news,",
+      "publication": "\" in Proceedings of the",
+      "year": 2022,
+      "pages": "362-370"
+    },
+    {
+      "id": "ref-1793ac4e-b060-4a03-99fb-cf3cfda415c4",
+      "number": 7,
+      "authors": [
+        "D"
+      ],
+      "title": "How to gauge investor behavior? a comparison of online investor sentiment measures,",
+      "publication": "\" Digital Finance",
+      "year": 2021,
+      "pages": "169-204",
+      "volume": "3",
+      "issue": "2"
+    },
+    {
+      "id": "ref-6a840cec-4647-447e-bf9f-a2142a76791c",
+      "number": 8,
+      "authors": [
+        "E"
+      ],
+      "title": "Efretuei, “Year and industry-level accounting narrative analysis: Readability and tone variation,” Journal of Emerging Technologies in Accounting, vol",
+      "publication": "no",
+      "year": 2021,
+      "pages": "53-76",
+      "volume": "18",
+      "issue": "2"
+    },
+    {
+      "id": "ref-7bb1702a-b8e2-43fa-8014-18b86028d268",
+      "number": 9,
+      "authors": [
+        "Z"
+      ],
+      "title": "Emolllms: A series of emotional large language models and annotation tools for comprehensive affective analysis,",
+      "publication": "th ACM SIGKDD Conference on Knowledge Discovery and Data Mining",
+      "year": 2024,
+      "pages": "5487-5496"
+    },
+    {
+      "id": "ref-1fcc00ea-5c5d-4de6-a92e-34335f983eb7",
+      "number": 10,
+      "authors": [
+        "B"
+      ],
+      "title": "Mendel and A",
+      "publication": "Shleifer",
+      "year": 2012,
+      "pages": "303–320",
+      "volume": "104",
+      "issue": "2"
+    },
+    {
+      "id": "ref-8569a7a3-edab-4ca0-a14b-dc34b2be7165",
+      "number": 11,
+      "authors": [
+        "D"
+      ],
+      "title": "Araci, “Finbert: Financial sentiment analysis with pre-trained language models,” arXiv preprint arXiv:1908.10063, 2019.",
+      "year": 1908
+    },
+    {
+      "id": "ref-9b8cffba-d0da-4f21-8824-4a4f953cdc68",
+      "number": 12,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Fingpt: Democratizing internet-scale data for financial large language models,",
+      "publication": "\" arXiv preprint arXiv:",
+      "year": 2023
+    },
+    {
+      "id": "ref-1c28e04f-9928-4c70-8073-06dde3851bfb",
+      "number": 13,
+      "authors": [
+        "S"
+      ],
+      "title": "Wu, O",
+      "publication": "Irsoy",
+      "year": 2023
+    },
+    {
+      "id": "ref-7b2fcad8-0e2b-4549-b6a0-63ccdd086007",
+      "number": 14,
+      "authors": [
+        "J"
+      ],
+      "title": "Lee, N",
+      "publication": "Stevens",
+      "year": 2025,
+      "pages": "1-15"
+    },
+    {
+      "id": "ref-bf7b6426-a148-4f13-8e1a-a0a5dcafafb8",
+      "number": 15,
+      "authors": [
+        "W"
+      ],
+      "title": "A survey on aspect-based sentiment analysis: Tasks, methods, and challenges,",
+      "publication": "\" IEEE Transactions on Knowledge and Data Engineering",
+      "year": 2022,
+      "pages": "11019-11038",
+      "volume": "35",
+      "issue": "11"
+    },
+    {
+      "id": "ref-2acb992e-36a1-4d19-b7b2-4d492002378d",
+      "number": 16,
+      "authors": [
+        "S"
+      ],
+      "title": "Sohangir, D",
+      "publication": "Wang",
+      "year": 2018,
+      "pages": "1–25",
+      "volume": "5",
+      "issue": "1"
+    },
+    {
+      "id": "ref-7982bf16-fceb-46f7-a428-f96a4e052b14",
+      "number": 17,
+      "authors": [
+        "G"
+      ],
+      "title": "An investigation of investor sentiment and speculative bond yield spreads,",
+      "publication": "\" in International Interdisciplinary Business-Economics Advancement Conference",
+      "year": 2015
+    },
+    {
+      "id": "ref-61d0dbb2-b75f-45d3-bf06-81a7492abe35",
+      "number": 18,
+      "authors": [
+        "P"
+      ],
+      "title": "Good debt or bad debt: Detecting semantic orientations in economic texts,",
+      "publication": "\" Journal of the Association for Information Science and Technology",
+      "year": 2014,
+      "pages": "782-796",
+      "volume": "65",
+      "issue": "4"
+    },
+    {
+      "id": "ref-539e724c-e957-4005-b71e-158e8015151e",
+      "number": 19,
+      "authors": [
+        "M"
+      ],
+      "title": "Www",
+      "publication": "open challenge: financial opinion mining and question answering",
+      "year": 2018,
+      "pages": "1941-1942"
+    },
+    {
+      "id": "ref-8b3c1ed1-d9b5-4ba8-8936-8c92c40f172b",
+      "number": 20,
+      "authors": [
+        "R"
+      ],
+      "title": "When flue meets flang: Benchmarks and large pre-trained language model for financial domain,",
+      "publication": "\" arXiv preprint arXiv:",
+      "year": 2022
+    },
+    {
+      "id": "ref-f92500ba-3993-40a7-930b-0b712dc6f7b1",
+      "number": 21,
+      "authors": [
+        "J"
+      ],
+      "title": "Combining enterprise knowledge graph and news sentiment analysis for stock price prediction,",
+      "publication": "\" *Hawaii International Conference on System Sciences*",
+      "year": 2019
+    },
+    {
+      "id": "ref-697f800b-a30c-4d15-ade1-750065c032dc",
+      "number": 22,
+      "authors": [
+        "T"
+      ],
+      "title": "Jochem and F",
+      "publication": "S",
+      "year": 2019
+    },
+    {
+      "id": "ref-9a27b376-cf96-43b9-9d4c-ba5ab9eff6e0",
+      "number": 23,
+      "authors": [
+        "J"
+      ],
+      "title": "Too sensitive to fail: The impact of sentiment connectedness on stock price crash risk,",
+      "publication": "\" Entropy",
+      "year": 2025,
+      "volume": "27",
+      "issue": "4"
+    },
+    {
+      "id": "ref-330a7f98-aa3b-4cd9-9940-daf8ca8f6e40",
+      "number": 24,
+      "authors": [
+        "L"
+      ],
+      "title": "A",
+      "publication": "Smales",
+      "year": 2016,
+      "pages": "37–61",
+      "volume": "38"
+    },
+    {
+      "id": "ref-b31ad345-e8af-4585-bad6-a48f18a70d15",
+      "number": 25,
+      "authors": [
+        "M"
+      ],
+      "title": "L",
+      "publication": "Defond and J",
+      "year": 2014,
+      "pages": "911–936",
+      "volume": "31",
+      "issue": "3"
+    },
+    {
+      "id": "ref-e6082d36-0e2c-4471-a433-a2b75b028d59",
+      "number": 26,
+      "authors": [
+        "L"
+      ],
+      "title": "Yue et al., “A survey of sentiment analysis in social media,” Knowledge and Information Systems, vol",
+      "publication": "pp",
+      "year": 2019,
+      "pages": "617-663",
+      "volume": "60"
+    },
+    {
+      "id": "ref-f4a19009-372a-489f-8e7e-7d63292467b5",
+      "number": 27,
+      "authors": [
+        "M"
+      ],
+      "title": "Zhang, Y",
+      "publication": "Wu",
+      "year": 2018
+    },
+    {
+      "id": "ref-ce3aebea-10e1-4e4e-b1b5-96fa80d20a74",
+      "number": 28,
+      "authors": [
+        "T"
+      ],
+      "title": "Kojima, S",
+      "publication": "S",
+      "year": 2022,
+      "pages": "22-199",
+      "volume": "35"
+    },
+    {
+      "id": "ref-3752b263-8a9f-4495-ad51-77d157c7a588",
+      "number": 29,
+      "authors": [
+        "T"
+      ],
+      "title": "Language models are few-shot learners,",
+      "publication": "\" Advances in neural information processing systems",
+      "year": 1901,
+      "pages": "1877-1901",
+      "volume": "33"
+    },
+    {
+      "id": "ref-95b2c3b6-8d66-4f4e-a2f6-3107c75a5447",
+      "number": 30,
+      "authors": [
+        "J"
+      ],
+      "title": "Chain-of-thought prompting elicits reasoning in large language models,",
+      "publication": "\" Advances in neural information processing systems",
+      "year": 2022,
+      "pages": "24-824",
+      "volume": "35"
+    },
+    {
+      "id": "ref-0e2c927f-9734-4ce8-bdd3-64c8cdc3fc35",
+      "number": 31,
+      "authors": [
+        "H"
+      ],
+      "title": "M",
+      "year": 1991,
+      "pages": "469–477",
+      "volume": "46",
+      "issue": "2"
+    },
+    {
+      "id": "ref-44d0bcc0-cedb-4c8b-8586-26d8266c48bc",
+      "number": 32,
+      "authors": [
+        "D"
+      ],
+      "title": "Chong and J",
+      "publication": "N",
+      "year": 2007,
+      "pages": "103–126",
+      "volume": "10",
+      "issue": "1"
+    },
+    {
+      "id": "ref-d6d142dc-357a-425a-9c73-8c1da688a15a",
+      "number": 33,
+      "authors": [
+        "M"
+      ],
+      "title": "Nerlove, D",
+      "publication": "M",
+      "year": 2014
+    },
+    {
+      "id": "ref-fbf9d432-2477-46a3-ad13-1bfb5feb7d19",
+      "number": 34,
+      "authors": [
+        "J"
+      ],
+      "title": "Credit spreads as predictors of real-time economic activity: a bayesian model-averaging approach,",
+      "publication": "\" Review of Economics and Statistics",
+      "year": 2013,
+      "pages": "1501-1519",
+      "volume": "95",
+      "issue": "5"
+    },
+    {
+      "id": "ref-642632cd-b965-4416-acde-369751e977dc",
+      "number": 35,
+      "authors": [
+        "P"
+      ],
+      "title": "Qwen2-vl: Enhancing vision-language model",
+      "publication": "'s perception of the world at any resolution",
+      "year": 2024
+    },
+    {
+      "id": "ref-55c3dbbf-b086-4cc2-b9a5-88a3c40428bd",
+      "number": 36,
+      "authors": [
+        "S"
+      ],
+      "title": "Xiao, Z",
+      "publication": "Liu",
+      "year": 2023
+    },
+    {
+      "id": "ref-101a84e8-c14e-4164-bba4-f0cd4f62335c",
+      "number": 37,
+      "authors": [
+        "DeepSeek-AI",
+        "\"Deepseek-r1"
+      ],
+      "title": "Deepseek-r1: Incentivizing reasoning capability in llms via reinforcement learning,",
+      "publication": "\"",
+      "year": 2025
+    },
+    {
+      "id": "ref-6ab50ae3-2c50-4e86-97bd-5cecebbcd439",
+      "number": 38,
+      "authors": [
+        "K"
+      ],
+      "title": "J",
+      "publication": "Forbes and R",
+      "year": 2002,
+      "pages": "2223–2261",
+      "volume": "57",
+      "issue": "5"
+    },
+    {
+      "id": "ref-30933c35-4d21-448f-9b14-5321c3b49f41",
+      "number": 39,
+      "authors": [
+        "A"
+      ],
+      "title": "Clean evidence on peer effects,",
+      "publication": "\" Journal of labor economics",
+      "year": 2006,
+      "pages": "39-57",
+      "volume": "24",
+      "issue": "1"
+    },
+    {
+      "id": "ref-1bf5c050-f959-4a6c-be4d-5a9033769d48",
+      "number": 40,
+      "authors": [
+        "R"
+      ],
+      "title": "B",
+      "publication": "Cleveland et al",
+      "year": 1990,
+      "pages": "3-73",
+      "volume": "6",
+      "issue": "1"
+    },
+    {
+      "id": "ref-b35655b7-af42-4c3f-89f0-2c7cb6b3ab32",
+      "number": 41,
+      "authors": [
+        "M"
+      ],
+      "title": "Permutation tests for studying classifier performance.",
+      "publication": "\" Journal of machine learning research",
+      "year": 2010,
+      "volume": "11",
+      "issue": "6"
+    },
+    {
+      "id": "ref-dbe9c8a4-5661-432e-be86-b7531b76321d",
+      "number": 42,
+      "authors": [
+        "A"
+      ],
+      "title": "All models are wrong, but many are useful: Learning a variable",
+      "publication": "'s importance by studying an entire class of prediction models simultaneously",
+      "year": 2019,
+      "url": "https://cdn-mineru.openxlab.org.cn/result/2025-10-15/375d33d8-82b5-4315-8b8b-ca640938b85f/0b37040d9031831926e9015df28c2afb2bc85e16e98234a067e35856688029f9.jpg",
+      "pages": "1-81",
+      "volume": "20",
+      "issue": "177"
+    },
+    {
+      "id": "ref-c46a9bb5-7133-41ca-9d48-9476a1135447",
+      "number": 27,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Economic Topics."
+    },
+    {
+      "id": "ref-102b7a4e-996a-4fb3-a9b8-98a7c2df58f0",
+      "number": 11,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Domestic Economic Indicators Topics."
+    },
+    {
+      "id": "ref-c7453b32-369c-41aa-9ea7-c45d5657488e",
+      "number": 14,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Global Economic Indicators Topics."
+    },
+    {
+      "id": "ref-f9c0d6da-81ae-4a37-bd22-54b9b334b456",
+      "number": 12,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Domestic Financial Topics."
+    },
+    {
+      "id": "ref-c21f7a08-4c47-4009-8c59-7d3835050dc5",
+      "number": 13,
+      "authors": [
+        "International Relations Topics"
+      ],
+      "title": "- 6 Natural Disasters Topics."
+    },
+    {
+      "id": "ref-8e56d9b4-1455-473b-8cd7-3f56bf85cf18",
+      "number": 10,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Technological Advancements Topics."
+    },
+    {
+      "id": "ref-15906b6b-7b67-4159-9923-480a83b34aa9",
+      "number": 16,
+      "authors": [
+        "Social Developments Topics"
+      ],
+      "title": "- 7 Environmental Protection Topics",
+      "publication": "Legal Regulations Topics"
+    },
+    {
+      "id": "ref-a0dc4fc9-ca7a-457e-9607-9f6db671ffe3",
+      "number": 2,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Shibor (Shanghai Interbank Offered Rate) in March"
+    },
+    {
+      "id": "ref-465d5de1-05a8-4c1c-b325-fd9f86a4dd15",
+      "number": 3,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Manufacturing PMI (Purchasing Managers' Index)"
+    },
+    {
+      "id": "ref-753b994e-4938-4f7f-ba5f-9ca1b143b18b",
+      "number": 4,
+      "authors": [
+        "Macroeconomic Prosperity Index"
+      ],
+      "title": "Macroeconomic Prosperity Index: Leading Index"
+    },
+    {
+      "id": "ref-494c256a-5811-4c5e-a9c5-b5be4a8ef267",
+      "number": 5,
+      "authors": [
+        "PPI (Producer Price Index)"
+      ],
+      "title": "PPI (Producer Price Index): Year-over-Year for the Current Month"
+    },
+    {
+      "id": "ref-08a301b0-78fa-4333-a8df-70aba1135f3c",
+      "number": 6,
+      "authors": [
+        "GDP (Gross Domestic Product)"
+      ],
+      "title": "GDP (Gross Domestic Product): Year-over-Year for the Current Quarter"
+    },
+    {
+      "id": "ref-ba5bc6f1-6e66-4895-9a1d-83416d5dfcd8",
+      "number": 7,
+      "authors": [
+        "CPI (Consumer Price Index)"
+      ],
+      "title": "CPI (Consumer Price Index): Year-over-Year for the Current Month"
+    },
+    {
+      "id": "ref-c36c62e5-67ed-4d56-9f15-8cd3d9ea4392",
+      "number": 8,
+      "authors": [
+        "Aggregate Financing to the Real Economy (AFRE)"
+      ],
+      "title": "Aggregate Financing to the Real Economy (AFRE): Year-over-Year at Period-End"
+    },
+    {
+      "id": "ref-8d65430c-51a6-43a3-b3c7-6b6add84d03d",
+      "number": 9,
+      "authors": [
+        "Yield on Government Bonds (for the Corre-sponding Period)</td></tr><tr><td>Industrial Indicator</td><td>10"
+      ],
+      "title": "SWS³ Primary Industry Index</td></tr><tr><td>Trading Indicator</td><td>11",
+      "publication": "Trading"
+    },
+    {
+      "id": "ref-4b493fdc-c0b5-475b-a2cc-892e139b097f",
+      "number": 13,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Operating Costs"
+    },
+    {
+      "id": "ref-81b6576d-b49e-42cf-aaae-861f28562444",
+      "number": 14,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Total Profit"
+    },
+    {
+      "id": "ref-eaa06b94-bca1-4548-86f3-1736b63d5238",
+      "number": 15,
+      "authors": [
+        "Current Assets</td></tr><tr><td></td><td>16"
+      ],
+      "title": "Non-Current Assets"
+    },
+    {
+      "id": "ref-6c476b48-38f8-4e58-84f8-a7e152c5c4a2",
+      "number": 17,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Total Assets"
+    },
+    {
+      "id": "ref-d316950e-ba15-4cf7-aa9b-a96adaef62c8",
+      "number": 18,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Current Liabilities"
+    },
+    {
+      "id": "ref-fd894126-815b-4235-ae6b-2ecefec55768",
+      "number": 19,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Non-Current Liabilities"
+    },
+    {
+      "id": "ref-3bce79db-9b4a-436c-81d5-20cf61417fed",
+      "number": 20,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Total Liabilities"
+    },
+    {
+      "id": "ref-bad6368c-5ce4-4a67-a3b2-4c2c8ffb7a68",
+      "number": 21,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Total Shareholders' Equity"
+    },
+    {
+      "id": "ref-b92941e1-bdd8-4dbd-bd1e-78e15c4b898c",
+      "number": 22,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Cash Flow from Operations"
+    },
+    {
+      "id": "ref-6c0f7080-da2f-4d11-b8fb-9ac0c229a83d",
+      "number": 23,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Cash Flow from Investment"
+    },
+    {
+      "id": "ref-667e4213-c0d7-4e7a-8a35-a4fd880fb50b",
+      "number": 24,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Cash Flow from Finance"
+    },
+    {
+      "id": "ref-a666428b-72ac-44bf-97d0-3859dd75b844",
+      "number": 25,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Total Cash Flow"
+    },
+    {
+      "id": "ref-9d67b069-a21d-4909-8f38-72f5dc6ef5e2",
+      "number": 26,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Current Ratio"
+    },
+    {
+      "id": "ref-7b5c910c-7f6d-4ba4-8a3b-3ce31a2d79c6",
+      "number": 27,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Quick Ratio"
+    },
+    {
+      "id": "ref-e1fdf390-5097-432a-8177-fcb2eb01dba5",
+      "number": 28,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Super Quick Ratio"
+    },
+    {
+      "id": "ref-02e9b0dc-fcfe-434b-ad58-6c06e2c3cdd5",
+      "number": 29,
+      "authors": [
+        "Debt-to-Account Ratio (%)</td></tr><tr><td>Firm Financial and Operational Indicators</td><td>30"
+      ],
+      "title": "Equity Ratio (%)"
+    },
+    {
+      "id": "ref-88335f30-7e48-4741-92bd-db562d938c69",
+      "number": 31,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Tangible Net Worth Debt Ratio (%)"
+    },
+    {
+      "id": "ref-30ff8175-f12b-4e74-a7a3-10aeb5593a53",
+      "number": 32,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Gross Profit Margin (%)"
+    },
+    {
+      "id": "ref-15150197-cd8e-4a92-a8c0-e5749b02abc5",
+      "number": 33,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Net Profit Margin (%)"
+    },
+    {
+      "id": "ref-81c3b7eb-42ec-43df-8e1f-491ee5094e80",
+      "number": 34,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Return on Assets (%)"
+    },
+    {
+      "id": "ref-9821648b-3cbf-4488-b973-bd1bf5af8253",
+      "number": 35,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Operating Profit Margin (%)"
+    },
+    {
+      "id": "ref-931d4c27-57ce-4751-979e-1e756e8ffed4",
+      "number": 36,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Average Return on Equity (%)"
+    },
+    {
+      "id": "ref-99086fb1-c605-4f6f-a579-32f92223a34f",
+      "number": 37,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Operating Cycle (Days)"
+    },
+    {
+      "id": "ref-d32f0a02-9e74-4d93-ab50-9676936411f4",
+      "number": 38,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Inventory Turnover Ratio"
+    },
+    {
+      "id": "ref-ddeb4c12-43ae-4da1-a771-c837f80be69c",
+      "number": 39,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Accounts Receivable Turnover Ratio"
+    },
+    {
+      "id": "ref-e411c723-8537-4194-8759-25c233dfc935",
+      "number": 40,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Current Asset Turnover Ratio"
+    },
+    {
+      "id": "ref-c2aa599c-ddaf-4f3a-89c0-24d300767895",
+      "number": 41,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Shareholders' Equity Turnover Ratio"
+    },
+    {
+      "id": "ref-f1f35df0-604d-4c70-b1c7-5f3aed9ea55e",
+      "number": 42,
+      "authors": [
+        "Total Asset Turnover Ratio</td></tr><tr><td>Firm Comprehensive Credit Indicators</td><td>43"
+      ],
+      "title": "Remaining Credit Utilization Ratio"
+    },
+    {
+      "id": "ref-d035d2e5-4409-4655-bf76-2c391530e903",
+      "number": 44,
+      "authors": [
+        "Unknown"
+      ],
+      "title": "Month-over-Month Change in Credit"
+    },
+    {
+      "id": "ref-9e8685f8-ae0a-41ba-b434-89bbe57def95",
+      "number": 45,
+      "authors": [
+        "Secured Credit Ratio</td></tr></table>\n\nTABLE VIII"
+      ],
+      "title": "<table><tr><td>Feature Name</td><td>Feature Importance</td></tr><tr><td>1: PPI</td><td>0.05599892602199476</td></tr><tr><td>2: Macroeconomic Climate Index</td><td>0.05008474777898123</td></tr><tr><td>3: AFRE</td><td>0.048741595825980824</td></tr><tr><td>4: Yield on Government Bonds</td><td>0.04777380830739202</td></tr><tr><td>5: Shibor</td><td>0.04202742096446867</td></tr><tr><td>6: CPI</td><td>0.03426918656953126</td></tr><tr><td>7: GDP</td><td>0.024902612696883587</td></tr><tr><td>8: Cash Flow from Finance</td><td>0.023586526180286515</td></tr><tr><td>9: Manufacturing PMI</td><td>0.022554323742137495</td></tr><tr><td>10: USDCNYC</td><td>0.017421353277869984</td></tr><tr><td>11: Total Asset Turnover Ratio</td><td>0.016773429134312498</td></tr><tr><td>12: Return on Assets</td><td>0.013167433864527414</td></tr><tr><td>13: Total Cash Flow</td><td>0.010537711967037596</td></tr><tr><td>14: Cash Flow from Investment</td><td>0.008872511265766582</td></tr><tr><td>15: Remaining Credit Utilization Ratio</td><td>0.00838505541576473</td></tr><tr><td>16: Current Ratio</td><td>0.008380998325133737</td></tr><tr><td>17: Sentiment</td><td>0.008268740522892847</td></tr><tr><td>18: Current Asset Turnover Ratio</td><td>0.007556228501431426</td></tr><tr><td>19: SWS Primary Industry Index</td><td>0.007512512820364697</td></tr><tr><td>20: Super Quick Ratio</td><td>0.007150048651024073</td></tr><tr><td>21: Shareholders’ Equity Turnover Ratio</td><td>0.006558091767532665</td></tr><tr><td>22: Total Shareholders’ Equity</td><td>0.006398215943515894</td></tr><tr><td>23: Cash Flow from Operations</td><td>0.00609119415065037</td></tr><tr><td>24: Debt-to-Asset Ratio</td><td>0.005764414957338115</td></tr><tr><td>25: Non-Current Liabilities</td><td>0.005377152453926447</td></tr><tr><td>26: Quick Ratio</td><td>0.005087716463639998</td></tr><tr><td>27: Operating Costs</td><td>0.004967130897281532</td></tr><tr><td>28: Current Assets</td><td>0.004729885882607893</td></tr><tr><td>29: Total Profit</td><td>0.004242905231156374</td></tr><tr><td>30: Equity Ratio</td><td>0.0041352546569015155</td></tr><tr><td>31: Trading Volume</td><td>0.003781201374037846</td></tr><tr><td>32: Operating Revenue</td><td>0.003794565139728852</td></tr><tr><td>33: Operating Profit Margin</td><td>0.003640317594096572</td></tr><tr><td>34: Average Return on Equity</td><td>0.002713547459396221</td></tr><tr><td>35: Operating Cycle</td><td>0.0019902378793583597</td></tr><tr><td>36: Tangible Net Worth Debt Ratio</td><td>0.001773556323910794</td></tr><tr><td>37: Non-Current Assets</td><td>0.0012569254454672025</td></tr></table>\n\n<table><tr><td>38: Current Liabilities</td><td>0.0010543009793960243</td></tr><tr><td>39: Gross Profit Margin</td><td>0.000877351203257241</td></tr><tr><td>40: Total Assets</td><td>0.0007847072011357649</td></tr><tr><td>41: Secured Credit Ratio</td><td>0.0006166506979297559</td></tr><tr><td>42: Total Liabilities</td><td>0.00043087517032615086</td></tr><tr><td>43: Accounts Receivable Turnover Ratio</td><td>0.00035094798939748516</td></tr><tr><td>44: Month-over-Month Change in Credit</td><td>0.00016757408467568303</td></tr><tr><td>45: Net Profit Margin</td><td>0.00013639526310798146</td></tr><tr><td>46: Inventory Turnover Ratio</td><td>1.7297315695033296e-08</td></tr></table>\n\n# **Task Description:**\n\nYou are a professional bond market analysis expert",
+      "publication": "You will receive a series of texts related to the bond market"
+    },
+    {
+      "id": "ref-46e9813c-965d-4a99-a188-9d687e020ba8",
+      "number": 1,
+      "authors": [
+        "Pessimistic (-1)"
+      ],
+      "title": "These include concerns about economic fundamentals (such as slowdowns or rising unemployment), expectations of tighter monetary policy and higher interest rates, reduced market liquidity, and risk events like defaults or downgrades."
+    },
+    {
+      "id": "ref-af2cb512-2b73-435b-b60b-37f92d7b11bd",
+      "number": 2,
+      "authors": [
+        "Neutral (0)"
+      ],
+      "title": "The content is mostly unrelated to macro financial markets, especially the bond market."
+    },
+    {
+      "id": "ref-2d78e7ee-da27-4866-b6fd-fd0a4dc18677",
+      "number": 3,
+      "authors": [
+        "Optimistic (1)"
+      ],
+      "title": "improvement",
+      "publication": "'",
+      "year": 2023
+    }
+  ],
+  "blockNotes": [],
+  "checklistNotes": [],
+  "attachments": []
+}
