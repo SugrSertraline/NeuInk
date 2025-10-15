@@ -254,7 +254,7 @@ export interface TableBlock extends BlockElement {
     zh?: InlineContent[];
   };
   headers?: string[];
-  rows: string[][];
+  rows: (string | { en?: string; zh?: string })[][];
   align?: ('left' | 'center' | 'right')[];
 }
 

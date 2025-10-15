@@ -19,10 +19,8 @@ export default function PaperMetadata({ content }: PaperMetadataProps) {
           {metadata.title}
         </h1>
         
-        {/* ... 作者信息等保持不变 ... */}
       </div>
 
-      {/* 摘要 - 🆕 改为从 content.abstract 获取 */}
       {abstract && (
         <div className="p-8 border-t border-gray-200">
           <h2 className="text-xs font-bold text-blue-600 uppercase tracking-wide mb-3">

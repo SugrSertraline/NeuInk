@@ -1,13 +1,13 @@
 'use client';
 import { useState, useRef } from 'react';
 import TextSelectionToolbar from './TextSelectionToolbar';
-import { 
-  toggleBold, 
-  toggleItalic, 
-  toggleUnderline, 
-  applyTextColor, 
+import {
+  toggleBold,
+  toggleItalic,
+  toggleUnderline,
+  applyTextColor,
   applyBackgroundColor,
-  clearAllStyles 
+  clearAllStyles
 } from '../utils/inlineContentUtils';
 import type { ParagraphBlock, HeadingBlock } from '../../../types/paper';
 import React, { useEffect } from 'react';
@@ -71,9 +71,8 @@ export default function BlockRenderer({
   const [selectedText, setSelectedText] = useState('');
   const blockRef = useRef<HTMLDivElement>(null);
 
-  const baseClass = `transition-all duration-200 rounded-lg ${
-    isActive ? 'bg-blue-50 ring-2 ring-blue-200 shadow-sm' : ''
-  }`;
+  const baseClass = `transition-all duration-200 rounded-lg ${isActive ? 'bg-blue-50 ring-2 ring-blue-200 shadow-sm' : ''
+    }`;
 
   // ✅ 改进的文本选择处理
   const handleTextSelection = (e: React.MouseEvent) => {
@@ -101,15 +100,15 @@ export default function BlockRenderer({
         const rect = range.getBoundingClientRect();
         if (rect) {
           setSelectedText(text);
-          
+
           // ✅ 计算工具栏位置（相对于视口）
           setToolbarPos({
             x: rect.left + rect.width / 2,
             y: rect.top - 10 // 工具栏显示在选区上方
           });
-          
+
           setShowToolbar(true);
-          
+
           console.log('=== 文本选择调试 ===');
           console.log('选中的文本:', text);
           console.log('块类型:', block.type);
@@ -127,20 +126,20 @@ export default function BlockRenderer({
     value?: string
   ) => {
     if (!onBlockUpdate || !selectedText) return;
-    
+
     const currentBlock = block as ParagraphBlock | HeadingBlock;
     const currentContent = currentBlock.content?.[lang];
-    
+
     if (!currentContent) return;
-    
+
     console.log('=== 应用样式 ===');
     console.log('样式类型:', styleType);
     console.log('样式值:', value);
     console.log('选中文本:', selectedText);
     console.log('原内容:', currentContent);
-    
+
     let newContent = currentContent;
-    
+
     switch (styleType) {
       case 'bold':
         newContent = toggleBold(currentContent, selectedText);
@@ -165,9 +164,9 @@ export default function BlockRenderer({
         newContent = clearAllStyles(currentContent, selectedText);
         break;
     }
-    
+
     console.log('新内容:', newContent);
-    
+
     const updatedBlock = {
       ...currentBlock,
       content: {
@@ -175,10 +174,10 @@ export default function BlockRenderer({
         [lang]: newContent
       }
     };
-    
+
     // 更新内容
     onBlockUpdate(updatedBlock);
-    
+
     // 延迟关闭工具栏
     setTimeout(() => {
       setShowToolbar(false);
@@ -205,8 +204,8 @@ export default function BlockRenderer({
           children: (
             <>
               {block.number && <span className="text-blue-600 mr-2">{block.number}</span>}
-              <InlineRenderer 
-                nodes={block.content?.[lang]} 
+              <InlineRenderer
+                nodes={block.content?.[lang]}
                 references={references}
                 onCitationClick={onCitationClick}
                 searchQuery={searchQuery}
@@ -235,20 +234,20 @@ export default function BlockRenderer({
           right: 'text-right',
           justify: 'text-justify'
         }[block.align || 'left'];
-        
+
         return (
-          <p 
+          <p
             className={`text-gray-700 leading-relaxed ${alignClass}`}
             onMouseUp={handleTextSelection}
             style={{ userSelect: 'text' }}
           >
-            <InlineRenderer 
-              nodes={block.content?.[lang]} 
+            <InlineRenderer
+              nodes={block.content?.[lang]}
               references={references}
               onCitationClick={onCitationClick}
               searchQuery={searchQuery}
               allSections={allSections}
-              contentRef={contentRef} 
+              contentRef={contentRef}
             />
           </p>
         );
@@ -332,38 +331,49 @@ export default function BlockRenderer({
                 />
               </div>
             )}
+      
             <table className="min-w-full border-collapse border border-gray-300 mx-auto shadow-sm">
               {block.headers && (
                 <thead className="bg-gray-100">
                   <tr>
-                    {block.headers.map((h, i) => (
-                      <th
-                        key={i}
-                        className="border border-gray-300 px-3 py-2 font-semibold text-gray-900 text-sm"
-                        style={{ textAlign: block.align?.[i] || 'left' }}
-                      >
-                        {h}
-                      </th>
-                    ))}
+                    {block.headers.map((h, i) => {
+                      const headerText = typeof h === 'object' ? (h[lang] || h.en || '') : h;
+                      return (
+                        <th
+                          key={i}
+                          className="border border-gray-300 px-3 py-2 font-semibold text-gray-900 text-sm"
+                          style={{ textAlign: block.align?.[i] || 'left' }}
+                        >
+                          {headerText}
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
               )}
               <tbody>
                 {block.rows.map((row, r) => (
                   <tr key={r} className="hover:bg-gray-50 transition-colors">
-                    {row.map((cell, c) => (
-                      <td
-                        key={c}
-                        className="border border-gray-300 px-3 py-2 text-gray-700 text-sm"
-                        style={{ textAlign: block.align?.[c] || 'left' }}
-                      >
-                        {cell}
-                      </td>
-                    ))}
+                    {row.map((cell, c) => {
+                      let displayValue: any = cell;
+                      if (typeof cell === 'object' && cell !== null) {
+                        displayValue = cell[lang] || cell.en || '';
+                      }
+                      return (
+                        <td
+                          key={c}
+                          className="border border-gray-300 px-3 py-2 text-gray-700 text-sm"
+                          style={{ textAlign: block.align?.[c] || 'left' }}
+                        >
+                          {displayValue}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>
             </table>
+      
             {block.description?.[lang] && (
               <div className="text-xs text-gray-500 mt-2 text-center">
                 <InlineRenderer
@@ -376,6 +386,7 @@ export default function BlockRenderer({
           </div>
         );
       }
+      
 
       case 'code': {
         return (
@@ -480,7 +491,7 @@ export default function BlockRenderer({
       >
         {renderContent()}
       </div>
-      
+
       {showToolbar && (
         <TextSelectionToolbar
           onBold={() => applyStyle('bold')}
