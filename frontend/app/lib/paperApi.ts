@@ -28,12 +28,12 @@ const routes = {
   item: (id: string) => `/api/papers/${id}`,
   content: (id: string) => `/api/papers/${id}/content`,
   checklists: (id: string) => `/api/papers/${id}/checklists`,
-  progress: (id: string) => `/api/papers/${id}/progress`,
   search: '/api/papers/search',
   import: '/api/papers/import',
   export: '/api/papers/export',
   stats: '/api/papers/stats',
-  fromMarkdown: '/api/papers/from-markdown', // 🆕 从Markdown创建
+  fromMarkdown: '/api/papers/upload/markdown', // 🆕 从Markdown创建
+  parseProgress: (id: string) => `/api/papers/${id}/parse/progress`, // 🆕 解析进度
 };
 
 // ============ 论文基础操作 ============
@@ -98,33 +98,65 @@ export async function createPaper(
 export async function createPaperFromMarkdown(
   markdownFile: File
 ): Promise<{
-  paper: PaperRecord;
-  parsedInfo?: {
-    title?: string;
-    authors?: string[];
-    abstract?: string;
-    keywords?: string[];
+  success: boolean;
+  data: {
+    id: string;
+    title: string;
+    authors: string;
+    readingStatus: string;
+    parseStatus: string;
   };
+  message: string;
 }> {
   const formData = new FormData();
-  formData.append('markdown', markdownFile);
+  formData.append('file', markdownFile);
   
-  const result = await apiPost<PaperRecord & {
-    parsedInfo?: {
-      title?: string;
-      authors?: string[];
-      abstract?: string;
-      keywords?: string[];
+  return apiPost<{
+    success: boolean;
+    data: {
+      id: string;
+      title: string;
+      authors: string;
+      readingStatus: string;
+      parseStatus: string;
     };
+    message: string;
   }>(routes.fromMarkdown, formData);
-  
-  // 分离论文数据和解析信息
-  const { parsedInfo, ...paper } = result;
-  
-  return {
-    paper,
-    parsedInfo
+}
+
+/**
+ * 🆕 获取论文解析进度
+ */
+export async function fetchParseProgress(paperId: string): Promise<{
+  success: boolean;
+  data: {
+    paperId: string;
+    parseStatus: string;
+    progress: {
+      stage: string;
+      percentage: number;
+      message: string;
+      lastUpdate: string;
+      error?: string;
+    } | null;
+    isRunning: boolean;
   };
+}> {
+  return apiGetData<{
+    success: boolean;
+    data: {
+      paperId: string;
+      parseStatus: string;
+      progress: {
+        stage: string;
+        percentage: number;
+        message: string;
+        lastUpdate: string;
+        error?: string;
+      } | null;
+      isRunning: boolean;
+    };
+  }>(routes.parseProgress(paperId));
 }
 
 /**
@@ -163,19 +195,6 @@ export async function savePaperContent(
   return apiPut<PaperContent>(routes.content(paperId), content);
 }
 
-/**
- * 更新论文阅读进度
- */
-export async function updateReadingProgress(
-  paperId: string,
-  progress: {
-    readingPosition?: number;
-    totalReadingTime?: number;
-    lastReadTime?: string;
-  }
-): Promise<void> {
-  return apiPut<void>(routes.progress(paperId), progress);
-}
 
 // ============ 论文关联操作 ============
 

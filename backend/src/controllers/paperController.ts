@@ -9,7 +9,7 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import { recordToMetadata, metadataToRecord } from '../utils/paperMapper';
 import { PaperContent } from '../types/paper';
-import { getParseJobProgress, retryMarkdownParseJob, startMarkdownParseJob } from '../services/markdownParseJob';
+import { testService } from '../services/testService';
 
 /**
  * ===== 工具函数：Markdown 文件验证 =====
@@ -83,6 +83,187 @@ function validateMarkdownFile(filename: string, content: string): ValidationResu
   }
 
   return { valid: true };
+}
+
+/**
+ * 从 Markdown 文件创建论文（使用测试服务）
+ */
+export async function createPaperFromMarkdown(req: Request, res: Response) {
+  try {
+    // 1. 验证文件上传
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: '未上传 Markdown 文件'
+      });
+    }
+
+    const file = req.file;
+    const markdownContent = file.buffer.toString('utf-8');
+    
+    // 2. 基础验证
+    const validation = validateMarkdownFile(file.originalname, markdownContent);
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: validation.error
+      });
+    }
+
+    // 3. 生成论文 ID
+    const id = randomUUID();
+
+    console.log(`\n📤 收到 Markdown 上传请求 [${id}]`);
+    console.log(`📄 文件名: ${file.originalname}`);
+    console.log(`📏 大小: ${(markdownContent.length / 1024).toFixed(2)} KB`);
+
+    // 4. 创建论文记录（初始状态）
+    const paper = await Paper.create({
+      id,
+      title: file.originalname.replace(/\.(md|markdown)$/i, ''),
+      authors: JSON.stringify([]),
+      readingStatus: 'unread',
+      readingPosition: 0,
+      totalReadingTime: 0,
+      parseStatus: 'pending',
+      remarks: JSON.stringify({
+        parseProgress: {
+          stage: 'pending',
+          percentage: 0,
+          message: '等待解析',
+          lastUpdate: new Date().toISOString()
+        }
+      })
+    });
+
+    // 5. 立即返回响应（异步解析）
+    res.status(201).json({
+      success: true,
+      data: paper,
+      message: '论文创建成功，正在后台解析中...'
+    });
+
+    // 6. 启动异步测试解析
+    startTestParsing(id, markdownContent);
+
+  } catch (error) {
+    console.error('创建论文失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : '创建论文失败'
+    });
+  }
+}
+
+/**
+ * 启动异步测试解析
+ */
+async function startTestParsing(paperId: string, markdownContent: string) {
+  try {
+    console.log(`🚀 启动异步测试解析 [${paperId}]`);
+
+    // 更新解析状态
+    await Paper.update(paperId, {
+      parseStatus: 'parsing',
+      remarks: JSON.stringify({
+        parseProgress: {
+          stage: 'init',
+          percentage: 0,
+          message: '开始测试解析...',
+          lastUpdate: new Date().toISOString()
+        }
+      })
+    });
+
+    // 启动测试解析任务
+    const emitter = testService.startTestParsing(paperId);
+
+    // 监听进度更新
+    emitter.on('progress', async (progress) => {
+      try {
+        await Paper.update(paperId, {
+          remarks: JSON.stringify({
+            parseProgress: {
+              ...progress,
+              lastUpdate: new Date().toISOString()
+            }
+          })
+        });
+      } catch (error) {
+        console.error(`更新进度失败 [${paperId}]:`, error);
+      }
+    });
+
+    // 监听完成
+    emitter.on('complete', async ({ result, paperContent }) => {
+      try {
+        console.log(`✅ 测试解析完成，保存结果 [${paperId}]`);
+
+        // 更新元数据
+        const metadata = result.metadata;
+        await Paper.update(paperId, {
+          title: metadata.title || 'Untitled',
+          authors: JSON.stringify(metadata.authors || []),
+          year: metadata.year,
+          doi: metadata.doi,
+          publication: metadata.publication,
+          parseStatus: 'completed',
+          remarks: JSON.stringify({
+            parseProgress: {
+              stage: 'completed',
+              percentage: 100,
+              message: '测试解析完成',
+              lastUpdate: new Date().toISOString()
+            }
+          })
+        });
+
+        // 保存论文内容到 JSON 文件
+        const dataDir = path.join(__dirname, '../../data/papers');
+        await fs.mkdir(dataDir, { recursive: true });
+        
+        const jsonPath = path.join(dataDir, `${paperId}.json`);
+        await fs.writeFile(
+          jsonPath,
+          JSON.stringify(paperContent, null, 2),
+          'utf-8'
+        );
+
+        console.log(`💾 论文内容已保存 [${paperId}]`);
+      } catch (error) {
+        console.error(`保存解析结果失败 [${paperId}]:`, error);
+        
+        await Paper.update(paperId, {
+          parseStatus: 'failed',
+          remarks: JSON.stringify({
+            parseProgress: {
+              stage: 'failed',
+              percentage: 0,
+              message: '保存失败: ' + (error instanceof Error ? error.message : String(error)),
+              error: String(error),
+              lastUpdate: new Date().toISOString()
+            }
+          })
+        });
+      }
+    });
+
+  } catch (error) {
+    console.error(`启动测试解析失败 [${paperId}]:`, error);
+    
+    await Paper.update(paperId, {
+      parseStatus: 'failed',
+      remarks: JSON.stringify({
+        parseProgress: {
+          stage: 'failed',
+          percentage: 0,
+          message: '启动测试解析失败',
+          error: error instanceof Error ? error.message : String(error),
+          lastUpdate: new Date().toISOString()
+        }
+      })
+    });
+  }
 }
 
 /**
@@ -452,93 +633,15 @@ export async function getPaperChecklists(req: Request, res: Response) {
   }
 }
 
-/**
- * 从 Markdown 文件创建论文
- */
-export async function createPaperFromMarkdown(req: Request, res: Response) {
-  try {
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        error: '未上传 Markdown 文件'
-      });
-    }
-
-    const file = req.file;
-    const markdownContent = file.buffer.toString('utf-8');
-    
-    // 基础验证
-    const validation = validateMarkdownFile(file.originalname, markdownContent);
-    if (!validation.valid) {
-      return res.status(400).json({
-        success: false,
-        error: validation.error
-      });
-    }
-
-    // 生成论文 ID
-    const id = randomUUID();
-
-    console.log(`\n📤 收到 Markdown 上传请求 [${id}]`);
-    console.log(`📄 文件名: ${file.originalname}`);
-    console.log(`📏 大小: ${(markdownContent.length / 1024).toFixed(2)} KB`);
-
-    // 创建论文记录（初始状态）
-    const paper = await Paper.create({
-      id,
-      title: file.originalname.replace(/\.(md|markdown)$/i, ''), // 暂时用文件名
-      authors: JSON.stringify([]),
-      readingStatus: 'unread',
-      readingPosition: 0,
-      totalReadingTime: 0,
-      parseStatus: 'pending', // 待解析
-      remarks: JSON.stringify({
-        parseProgress: {
-          percentage: 0,
-          message: '正在准备解析...',
-          lastUpdate: new Date().toISOString()
-        }
-      })
-    });
-
-    // 启动后台解析任务（不阻塞响应）
-    console.log(`🔄 启动后台解析任务 [${id}]`);
-    startMarkdownParseJob(id, markdownContent).catch(err => {
-      console.error(`后台任务启动失败 [${id}]:`, err);
-    });
-
-    // 立即返回响应
-    res.status(201).json({
-      success: true,
-      data: paper,
-      message: '论文创建成功，正在后台解析中',
-      parseStatus: {
-        status: 'pending',
-        message: '解析任务已提交，请稍候...'
-      }
-    });
-
-    console.log(`✅ 响应已发送，后台继续解析 [${id}]\n`);
-
-  } catch (error) {
-    console.error('创建论文失败:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : '创建论文失败'
-    });
-  }
-}
 
 /**
- * 获取论文解析进度
+ * 获取解析进度
  */
-export async function getPaperParseProgress(req: Request, res: Response) {
+export async function getParseProgress(req: Request, res: Response) {
   try {
     const { id } = req.params;
-
-    // 从数据库获取论文信息
-    const paper = await Paper.findById(id);
     
+    const paper = await Paper.findById(id);
     if (!paper) {
       return res.status(404).json({
         success: false,
@@ -546,33 +649,14 @@ export async function getPaperParseProgress(req: Request, res: Response) {
       });
     }
 
-    // 尝试从内存中获取实时进度
-    const liveProgress = getParseJobProgress(id);
-
-    // 如果有实时进度，使用实时进度；否则从数据库读取
-    let progressInfo;
-    
-    if (liveProgress) {
-      progressInfo = liveProgress;
-    } else {
-      // 从 remarks 字段解析进度
+    // 从 remarks 中提取进度信息
+    let progress = null;
+    if (paper.remarks) {
       try {
-        const remarks = typeof paper.remarks === 'string' 
-          ? JSON.parse(paper.remarks) 
-          : paper.remarks;
-        
-        progressInfo = {
-          status: paper.parseStatus || 'pending',
-          percentage: remarks?.parseProgress?.percentage || 0,
-          message: remarks?.parseProgress?.message || '等待解析',
-          lastUpdate: remarks?.parseProgress?.lastUpdate
-        };
-      } catch {
-        progressInfo = {
-          status: paper.parseStatus || 'pending',
-          percentage: 0,
-          message: '等待解析'
-        };
+        const remarks = JSON.parse(paper.remarks);
+        progress = remarks.parseProgress;
+      } catch (error) {
+        console.error('解析 remarks 失败:', error);
       }
     }
 
@@ -581,73 +665,17 @@ export async function getPaperParseProgress(req: Request, res: Response) {
       data: {
         paperId: id,
         parseStatus: paper.parseStatus,
-        progress: progressInfo,
-        title: paper.title,
-        updatedAt: paper.updatedAt
+        progress,
+        isRunning: testService.isJobRunning(id)
       }
     });
-
   } catch (error) {
     console.error('获取解析进度失败:', error);
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : '获取解析进度失败'
+      error: '获取解析进度失败'
     });
   }
 }
 
-/**
- * 重新解析论文
- */
-export async function retryParsePaper(req: Request, res: Response) {
-  try {
-    const { id } = req.params;
 
-    console.log(`\n🔄 收到重新解析请求 [${id}]`);
-
-    // 检查论文是否存在
-    const paper = await Paper.findById(id);
-    if (!paper) {
-      return res.status(404).json({
-        success: false,
-        error: '论文不存在'
-      });
-    }
-
-    // 检查当前解析状态
-    if (paper.parseStatus === 'parsing') {
-      return res.status(400).json({
-        success: false,
-        error: '论文正在解析中，请等待当前解析完成'
-      });
-    }
-
-    // 尝试重新解析
-    const success = await retryMarkdownParseJob(id);
-
-    if (!success) {
-      return res.status(404).json({
-        success: false,
-        error: '无法重新解析：未找到原始 Markdown 文件。请重新上传文件。'
-      });
-    }
-
-    // 获取更新后的论文信息
-    const updatedPaper = await Paper.findById(id);
-
-    res.json({
-      success: true,
-      data: updatedPaper,
-      message: '重新解析任务已启动'
-    });
-
-    console.log(`✅ [${id}] 重新解析任务已启动\n`);
-
-  } catch (error) {
-    console.error('重新解析失败:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : '重新解析失败'
-    });
-  }
-}

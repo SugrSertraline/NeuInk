@@ -24,7 +24,6 @@ interface PaperTableProps {
   onPaperClick: (paper: PaperMetadata) => void;
   onEdit: (paper: PaperMetadata) => void;
   onDelete: (paper: PaperMetadata) => Promise<void>;
-  progressMap?: Map<string, { percentage: number; message: string }>; // 🆕
 }
 
 // 未填写提示组件
@@ -40,7 +39,6 @@ export default function PaperTable({
   onPaperClick,
   onEdit,
   onDelete,
-  progressMap, // 🆕
 }: PaperTableProps) {
   return (
     <div className="border rounded-lg overflow-hidden bg-white dark:bg-slate-900">
@@ -66,87 +64,19 @@ export default function PaperTable({
           {/* 表体 */}
           <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
             {papers.map((p) => {
-              // 🆕 解析状态信息，优先使用实时进度
-              const realtimeProgress = progressMap?.get(p.id);
-              const statusInfo = realtimeProgress 
-                ? {
-                    ...parseStatusInfo(p.parseStatus, p.remarks),
-                    progress: realtimeProgress.percentage,
-                    message: realtimeProgress.message,
-                  }
-                : parseStatusInfo(p.parseStatus, p.remarks);
-                
-              const isDisabled = statusInfo.isParsing || statusInfo.isFailed;
               
               return (
                 <ContextMenuWrapper
                   key={p.id}
                   paper={p}
-                  onViewDetails={() => !isDisabled && onPaperClick(p)}
-                  onEdit={() => !isDisabled && onEdit(p)}
-                  onDelete={() => !isDisabled && onDelete(p)}
+                  onViewDetails={() => onPaperClick(p)}
+                  onEdit={() => onEdit(p)}
+                  onDelete={() => onDelete(p)}
                 >
                   <tr
-                    onClick={() => !isDisabled && onPaperClick(p)}
-                    className={cn(
-                      "relative transition-colors",
-                      isDisabled 
-                        ? "cursor-not-allowed opacity-60 bg-slate-50/50 dark:bg-slate-800/30" 
-                        : "hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
-                    )}
+                    onClick={() => onPaperClick(p)}
+                    className="relative transition-colors hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
                   >
-                    {/* 🆕 解析中状态指示器 - 占据整行 */}
-                    {statusInfo.isParsing && (
-                      <td 
-                        className="p-3" 
-                        colSpan={TABLE_COLUMNS.filter(col => visibleColumns.has(col.key)).length}
-                      >
-                        <div className="flex items-center gap-4">
-                          <Loader2 className="w-5 h-5 text-blue-600 animate-spin shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium line-clamp-1 mb-2">{p.title}</div>
-                            <div className="max-w-md">
-                              <div className="text-sm text-slate-600 dark:text-slate-400 mb-2">
-                                {statusInfo.message}
-                              </div>
-                              <div className="space-y-1">
-                                <Progress value={statusInfo.progress} className="h-2" />
-                                <div className="text-xs text-slate-500 dark:text-slate-400">
-                                  {statusInfo.progress}%
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                    )}
-
-                    {/* 🆕 解析失败状态指示器 - 占据整行 */}
-                    {statusInfo.isFailed && (
-                      <td 
-                        className="p-3 bg-red-50/30 dark:bg-red-900/10" 
-                        colSpan={TABLE_COLUMNS.filter(col => visibleColumns.has(col.key)).length}
-                      >
-                        <div className="flex items-center gap-4">
-                          <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium line-clamp-1 mb-1">{p.title}</div>
-                            <div className="text-sm text-red-700 dark:text-red-300 font-medium">
-                              解析失败
-                            </div>
-                            {statusInfo.errorMessage && (
-                              <div className="text-xs text-red-600 dark:text-red-400 mt-1 line-clamp-2 max-w-2xl">
-                                {statusInfo.errorMessage}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                    )}
-
-                    {/* 正常状态下的所有列 */}
-                    {!statusInfo.isParsing && !statusInfo.isFailed && (
-                      <>
                         {/* 标题列 */}
                         {visibleColumns.has('title') && (
                           <td className="p-3 max-w-md">
@@ -327,10 +257,8 @@ export default function PaperTable({
                             </Button>
                           </td>
                         )}
-                      </>
-                    )}
-                  </tr>
-                </ContextMenuWrapper>
+                      </tr>
+                    </ContextMenuWrapper>
               );
             })}
           </tbody>

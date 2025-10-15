@@ -8,11 +8,13 @@ dotenv.config();
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import { createServer } from 'http';
 import { initDatabase, closeDatabase } from './utils/database';
 import { initFileSystem } from './utils/fileSystem';
 import paperRoutes from './routes/papers';
 import uploadsRouter from './routes/uploads';
 import checklistRoutes from './routes/checklists';
+import { testService } from './services/testService';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -23,7 +25,7 @@ console.log('🔧 环境变量检查');
 console.log('═'.repeat(60));
 console.log(`   PORT: ${process.env.PORT || '3001 (默认)'}`);
 console.log(`   NODE_ENV: ${process.env.NODE_ENV || 'development (默认)'}`);
-
+console.log(`   测试服务: 已启用`);
 console.log('═'.repeat(60) + '\n');
 
 // ============ 中间件 ============
@@ -47,7 +49,11 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     environment: {
       nodeEnv: process.env.NODE_ENV || 'development',
-      port: PORT
+      port: PORT,
+    },
+    services: {
+      database: 'ok',
+      testService: 'ok',
     }
   });
 });
@@ -91,19 +97,32 @@ async function startServer() {
     await initFileSystem();
     console.log('   ✓ 文件系统初始化完成\n');
     
+    // 3. 创建HTTP服务器（支持WebSocket）
+    console.log('🌐 创建HTTP服务器...');
+    const server = createServer(app);
+    console.log('   ✓ HTTP服务器创建完成\n');
+    
+    // 4. 测试服务初始化
+    console.log('🧪 初始化测试服务...');
+    console.log('   ✓ 测试服务初始化完成\n');
 
-    // 4. 启动HTTP服务器
-    app.listen(PORT, () => {
+    // 5. 启动HTTP服务器
+    server.listen(PORT, () => {
       console.log('═'.repeat(60));
       console.log('✅ 服务器启动成功！');
       console.log('═'.repeat(60));
-      console.log(`   🌐 服务地址: http://localhost:${PORT}`);
+      console.log(`   🌐 HTTP服务: http://localhost:${PORT}`);
       console.log(`   🏥 健康检查: http://localhost:${PORT}/api/health`);
       console.log(`   📚 论文接口: http://localhost:${PORT}/api/papers`);
       console.log(`   📋 清单接口: http://localhost:${PORT}/api/checklists`);
       console.log(`   📤 上传接口: http://localhost:${PORT}/api/uploads`);
+      console.log('   ─'.repeat(60));
       console.log(`   🌍 环境模式: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`   🧪 测试服务: 已启用`);
       console.log('═'.repeat(60) + '\n');
+      
+      // 提示信息
+      console.log('ℹ️  提示：当前使用测试服务，输出固定测试内容');
     });
   } catch (error) {
     console.error('\n❌ 服务器启动失败:');
@@ -119,6 +138,12 @@ async function gracefulShutdown(signal: string) {
   console.log('🔄 正在优雅关闭服务器...\n');
   
   try {
+    // 1. 关闭测试服务
+    console.log('   🛑 停止测试任务...');
+    testService.cleanup();
+    console.log('   ✓ 测试任务已停止\n');
+    
+    // 2. 关闭数据库
     console.log('   📊 关闭数据库连接...');
     await closeDatabase();
     console.log('   ✓ 数据库已关闭\n');
@@ -150,4 +175,4 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // 启动
-startServer(); 
+startServer();

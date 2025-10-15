@@ -6,24 +6,19 @@ import path from 'path';
 import * as paperController from '../controllers/paperController';
 
 const router = express.Router();
-
-// ========== Multer 文件上传配置 ==========
-
-// 配置 Markdown 文件上传
-const markdownStorage = multer.memoryStorage();
-const markdownUpload = multer({
-  storage: markdownStorage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB 限制
+// 配置 multer 用于文件上传
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB
+  },
   fileFilter: (req, file, cb) => {
-    const allowedExtensions = ['.md', '.markdown'];
-    const fileExtension = path.extname(file.originalname).toLowerCase();
-    
-    if (allowedExtensions.includes(fileExtension)) {
+    if (file.originalname.match(/\.(md|markdown)$/i)) {
       cb(null, true);
     } else {
-      cb(new Error('只支持 .md 或 .markdown 格式的文件'));
+      cb(new Error('只支持 .md 和 .markdown 文件'));
     }
-  }
+  },
 });
 
 // ========== 基础 CRUD 路由 ==========
@@ -84,54 +79,10 @@ router.put('/:id/content', paperController.savePaperContent);
  */
 router.get('/:id/checklists', paperController.getPaperChecklists);
 
-// ========== Markdown 智能解析路由 ==========
+// ========== Markdown 上传与解析 ==========
+router.post('/upload/markdown', upload.single('file'), paperController.createPaperFromMarkdown);
 
-/**
- * 从 Markdown 文件创建论文（后台异步解析）
- * POST /api/papers/from-markdown
- * Content-Type: multipart/form-data
- * Body: { markdown: File }
- * 
- * 响应：
- * {
- *   "success": true,
- *   "data": { id: "...", title: "...", parseStatus: "pending", ... },
- *   "message": "论文创建成功，正在后台解析中",
- *   "parseStatus": { status: "pending", message: "..." }
- * }
- */
-router.post('/from-markdown', markdownUpload.single('markdown'), paperController.createPaperFromMarkdown);
-
-/**
- * 获取论文解析进度
- * GET /api/papers/:id/parse-progress
- * 
- * 响应：
- * {
- *   "success": true,
- *   "data": {
- *     "paperId": "...",
- *     "parseStatus": "parsing",
- *     "progress": {
- *       "status": "parsing",
- *       "percentage": 45,
- *       "message": "正在解析论文内容... (3/8)",
- *       "totalChunks": 8,
- *       "chunksProcessed": 3
- *     }
- *   }
- * }
- */
-router.get('/:id/parse-progress', paperController.getPaperParseProgress);
-
-/**
- * 重新解析论文（待实现）
- * POST /api/papers/:id/reparse
- * 
- * 注意：需要保存原始 Markdown 内容才能重新解析
- */
-router.post('/:id/reparse', paperController.retryParsePaper);
-
-// ========== 导出路由 ==========
+// ========== 测试解析管理 ==========
+router.get('/:id/parse/progress', paperController.getParseProgress);  // 获取解析进度
 
 export default router;

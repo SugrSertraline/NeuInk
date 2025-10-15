@@ -4,7 +4,7 @@ import React from 'react';
 import { X, FileText, Loader2, Sparkles, AlertCircle, Upload, File, Trash2, Eye, User, Calendar, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { apiPost } from '@/app/lib/api';
+import { createPaperFromMarkdown } from '@/app/lib/paperApi';
 
 interface MarkdownPaperDialogProps {
   open: boolean;
@@ -159,9 +159,9 @@ export default function MarkdownPaperDialog({
       return;
     }
 
-    // 验证文件大小（最大 10MB）
-    if (file.size > 10 * 1024 * 1024) {
-      setError('文件大小不能超过 10MB');
+    // 验证文件大小（最大 50MB）
+    if (file.size > 50 * 1024 * 1024) {
+      setError('文件大小不能超过 50MB');
       setMarkdownFile(null);
       return;
     }
@@ -220,34 +220,15 @@ export default function MarkdownPaperDialog({
     setSuccess(null);
 
     try {
-      // 使用 FormData 上传文件
-      const formData = new FormData();
-      formData.append('markdown', markdownFile);
-
       // 调用后端API解析Markdown并创建论文
-      const result = await apiPost<{
-        id: string;
-        title: string;
-        authors: string;
-        readingStatus: string;
-        parsedInfo?: {
-          title?: string;
-          authors?: string[];
-          abstract?: string;
-          keywords?: string[];
-        };
-      }>('/api/papers/from-markdown', formData);
+      const result = await createPaperFromMarkdown(markdownFile);
       
-      const paperId = result?.id;
+      const paperId = result?.data?.id;
       
-      // 显示成功消息，包含解析出的信息
-      if (result?.parsedInfo) {
-        console.log('✅ Markdown解析成功:', result.parsedInfo);
-        const { title, authors, abstract, keywords } = result.parsedInfo;
-        let successMsg = `✅ 论文创建成功！`;
-        if (title) successMsg += `\n📖 标题: ${title}`;
-        if (authors && authors.length > 0) successMsg += `\n👥 作者: ${authors.join(', ')}`;
-        if (keywords && keywords.length > 0) successMsg += `\n🏷️ 关键词: ${keywords.join(', ')}`;
+      // 显示成功消息
+      if (result?.success && paperId) {
+        console.log('✅ 论文创建成功，正在解析中:', result.data);
+        let successMsg = `✅ 论文创建成功！\n📖 标题: ${result.data.title}\n🔄 正在后台解析中，请稍候...`;
         setSuccess(successMsg);
         
         // 延迟关闭对话框，让用户看到成功信息
@@ -257,9 +238,7 @@ export default function MarkdownPaperDialog({
           onClose();
         }, 2000);
       } else {
-        setMarkdownFile(null);
-        onSuccess(paperId);
-        onClose();
+        throw new Error(result?.message || '创建论文失败');
       }
     } catch (err: any) {
       console.error('从 Markdown 创建论文失败:', err);
@@ -314,7 +293,7 @@ export default function MarkdownPaperDialog({
               <div className="space-y-2 text-sm text-blue-700 dark:text-blue-300">
                 <p className="font-medium">💡 上传 Markdown 文件创建论文</p>
                 <p className="text-blue-600 dark:text-blue-400">
-                  支持上传标准的 Markdown 格式文件，系统会自动解析标题并创建论文记录。
+                  支持上传标准的 Markdown 格式文件，系统会自动解析内容并创建论文记录。解析过程在后台异步进行。
                 </p>
               </div>
             </div>
@@ -359,7 +338,7 @@ export default function MarkdownPaperDialog({
                     选择文件
                   </Button>
                   <p className="text-xs text-slate-500 dark:text-slate-500 mt-3">
-                    支持格式：.md, .markdown | 最大 100MB
+                    支持格式：.md, .markdown | 最大 50MB
                   </p>
                 </div>
               </div>
@@ -486,7 +465,7 @@ export default function MarkdownPaperDialog({
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                解析中...
+                创建中...
               </>
             ) : (
               <>
