@@ -1,0 +1,96 @@
+{
+  "abstract": {
+    "en": "This is a test abstract for demonstration purposes.",
+    "zh": "这是一个用于演示目的的测试摘要。"
+  },
+  "keywords": [
+    "测试关键词1",
+    "测试关键词2",
+    "test keyword3"
+  ],
+  "sections": [
+    {
+      "id": "section-1",
+      "number": "1",
+      "title": {
+        "en": "Introduction",
+        "zh": "引言"
+      },
+      "content": [
+        {
+          "id": "paragraph-1",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "This is a test paragraph in the introduction section. "
+              },
+              {
+                "type": "text",
+                "content": "It contains some sample text to demonstrate the structure."
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "这是引言部分的测试段落。"
+              },
+              {
+                "type": "text",
+                "content": "它包含一些示例文本来演示结构。"
+              }
+            ]
+          }
+        }
+      ],
+      "subsections": []
+    },
+    {
+      "id": "section-2",
+      "number": "2",
+      "title": {
+        "en": "Methodology",
+        "zh": "方法"
+      },
+      "content": [
+        {
+          "id": "paragraph-2",
+          "type": "paragraph",
+          "content": {
+            "en": [
+              {
+                "type": "text",
+                "content": "This section describes the test methodology used in this paper."
+              }
+            ],
+            "zh": [
+              {
+                "type": "text",
+                "content": "本节描述了本文中使用的测试方法。"
+              }
+            ]
+          }
+        }
+      ],
+      "subsections": []
+    }
+  ],
+  "references": [
+    {
+      "id": "ref-1",
+      "number": 1,
+      "authors": [
+        "测试作者A",
+        "测试作者B"
+      ],
+      "title": "测试参考文献标题",
+      "publication": "测试期刊",
+      "year": 2023,
+      "doi": "10.1000/test.ref1"
+    }
+  ],
+  "blockNotes": [],
+  "checklistNotes": [],
+  "attachments": []
+}

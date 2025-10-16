@@ -1,7 +1,5 @@
 // app/types/checklist.ts
 
-// ============= 从 shared 移过来的类型 =============
-
 /** 清单记录（数据库层） */
 export interface ChecklistRecord {
   id: string;

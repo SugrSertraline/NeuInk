@@ -651,11 +651,7 @@
             "en": [
               {
                 "type": "text",
-                "content": "Mult"
-              },
-              {
-                "type": "text",
-                "content": "i-head attentio",
+                "content": "Multi-head attentio",
                 "style": {
                   "bold": true
                 }
@@ -679,7 +675,26 @@
               },
               {
                 "type": "text",
-                "content": "o jointly attend to information from dif",
+                "content": "o jointly attend to informatio",
+                "style": {
+                  "color": "#ef4444",
+                  "italic": true,
+                  "backgroundColor": "#fee2e2",
+                  "bold": true
+                }
+              },
+              {
+                "type": "text",
+                "content": "n from",
+                "style": {
+                  "color": "#ef4444",
+                  "italic": true,
+                  "backgroundColor": "#fee2e2"
+                }
+              },
+              {
+                "type": "text",
+                "content": " dif",
                 "style": {
                   "color": "#ef4444",
                   "italic": true,
@@ -1393,7 +1408,6 @@
     }
   ],
   "checklistNotes": [],
-  "pdfPath": "/api/uploads/papers/aa25138f-98c2-4925-b68e-c48cc99334b0/transformer.pdf",
   "attachments": [
     "/api/uploads/papers/aa25138f-98c2-4925-b68e-c48cc99334b0/supplementary.pdf",
     "/api/uploads/papers/aa25138f-98c2-4925-b68e-c48cc99334b0/code.zip"
